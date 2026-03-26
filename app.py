@@ -76,13 +76,14 @@ def api_generate():
     prompt = data.get("prompt", "")
     num = data.get("num", 3)
     mode = data.get("mode", "ai")  # "ai" = tạo ảnh AI, "real" = ảnh/video thực
+    orientation = data.get("orientation", "landscape")  # "landscape", "portrait", "square"
 
     # Nếu mode = "real" hoặc prompt liên quan đến động vật -> dùng animal generator
     animal_keywords = ["animal", "động vật", "con vật", "wildlife", "thú", "chim", "cá"]
     is_animal_topic = any(kw in prompt.lower() for kw in animal_keywords) or mode == "real"
     
     if is_animal_topic and PEXELS_API_KEY:
-        return api_generate_animal_video(prompt, num)
+        return api_generate_animal_video(prompt, num, orientation)
     
     # Original AI generation flow
     def generate_stream():
@@ -180,11 +181,23 @@ def api_generate():
 
 # ---------- API: Generate Animal Videos (Real Images/Videos) ----------
 
-def api_generate_animal_video(prompt: str, num: int):
+def api_generate_animal_video(prompt: str, num: int, orientation: str = "landscape"):
     """Tạo video động vật với hình ảnh/video thực từ Pexels."""
+    
+    # Xác định kích thước video dựa trên orientation
+    if orientation == "portrait":
+        video_width, video_height = 1080, 1920  # 9:16 TikTok/Shorts
+        orientation_label = "Doc 9:16"
+    elif orientation == "square":
+        video_width, video_height = 1080, 1080  # 1:1 Instagram
+        orientation_label = "Vuong 1:1"
+    else:
+        video_width, video_height = 1920, 1080  # 16:9 YouTube
+        orientation_label = "Ngang 16:9"
     
     def generate_stream():
         yield log_event(f"🦁 Tao video dong vat voi hinh anh/video THUC")
+        yield log_event(f"📐 Kich thuoc: {video_width}x{video_height} ({orientation_label})")
         yield log_event(f"Chu de: {prompt}, So video: {num}")
         yield progress_event(5)
 
@@ -292,6 +305,9 @@ def api_generate_animal_video(prompt: str, num: int):
                     clip_index=ai,
                     use_video=True,
                     clip_duration=8.0,
+                    orientation=orientation,  # Truyền orientation
+                    target_width=video_width,
+                    target_height=video_height,
                 ))
                 
                 if clip:
@@ -317,7 +333,7 @@ def api_generate_animal_video(prompt: str, num: int):
             output_path = os.path.join(Config.OUTPUT_DIR, f"{i+1:02d}_{safe_title[:50]}.mp4")
             
             from generators.animal_video_generator import concatenate_videos
-            result = concatenate_videos(clip_paths, output_path)
+            result = concatenate_videos(clip_paths, output_path, video_width, video_height)
             
             yield progress_event(base_pct + 80 / total)
 

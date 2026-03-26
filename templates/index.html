@@ -200,6 +200,41 @@
             background: linear-gradient(135deg, #1a1a3e, #2a1a4e);
             color: #00d2ff;
         }
+        
+        /* Select dropdown */
+        select {
+            width: 100%;
+            padding: 14px 16px;
+            background: #1a1a2e;
+            border: 1px solid #2a2a3e;
+            border-radius: 10px;
+            color: #e0e0e0;
+            font-size: 1em;
+            transition: border 0.3s;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23888' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+        }
+        select:focus {
+            outline: none;
+            border-color: #7b2ff7;
+        }
+        select option {
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 10px;
+        }
+        
+        /* Two column layout */
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -231,9 +266,27 @@
             <input type="text" id="gen-prompt"
                    placeholder="VD: hay lam nhieu video ngan ve the gioi dong vat">
         </div>
-        <div class="form-group">
-            <label>So luong video</label>
-            <input type="number" id="gen-num" value="3" min="1" max="20">
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label>So luong video</label>
+                <input type="number" id="gen-num" value="3" min="1" max="20">
+            </div>
+            <div class="form-group">
+                <label>Ty le khung hinh</label>
+                <select id="gen-orientation">
+                    <option value="landscape">📺 Ngang 16:9 (YouTube, Desktop)</option>
+                    <option value="portrait">📱 Doc 9:16 (TikTok, Shorts, Reels)</option>
+                    <option value="square">⬜ Vuong 1:1 (Instagram)</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Orientation info -->
+        <div id="orientation-info" style="background: #1a1a3a; border: 1px solid #2a2a4a; border-radius: 10px; padding: 12px; margin-bottom: 15px; font-size: 0.85em;">
+            <span id="orientation-desc" style="color: #00d2ff;">
+                📺 <b>Video ngang 1920x1080</b> - Phu hop YouTube, Facebook, may tinh
+            </span>
         </div>
         
         <!-- Info box for Real mode -->
@@ -284,6 +337,23 @@
                 realInfo.style.display = 'block';
             }
         }
+        
+        // Orientation change handler
+        document.addEventListener('DOMContentLoaded', function() {
+            const orientationSelect = document.getElementById('gen-orientation');
+            const orientationDesc = document.getElementById('orientation-desc');
+            
+            orientationSelect.addEventListener('change', function() {
+                const value = this.value;
+                if (value === 'landscape') {
+                    orientationDesc.innerHTML = '📺 <b>Video ngang 1920x1080</b> - Phu hop YouTube, Facebook, may tinh';
+                } else if (value === 'portrait') {
+                    orientationDesc.innerHTML = '📱 <b>Video doc 1080x1920</b> - Phu hop TikTok, YouTube Shorts, Instagram Reels';
+                } else {
+                    orientationDesc.innerHTML = '⬜ <b>Video vuong 1080x1080</b> - Phu hop Instagram, Facebook';
+                }
+            });
+        });
         
         // Logging
         function clearLog() {
@@ -379,6 +449,7 @@
         async function startGenerate() {
             const prompt = document.getElementById('gen-prompt').value.trim();
             const num = parseInt(document.getElementById('gen-num').value) || 3;
+            const orientation = document.getElementById('gen-orientation').value;
             if (!prompt) { alert('Vui long nhap chu de video!'); return; }
 
             const btn = document.getElementById('btn-generate');
@@ -388,7 +459,7 @@
             await streamSSE('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, num, mode: currentMode }),
+                body: JSON.stringify({ prompt, num, mode: currentMode, orientation }),
             });
 
             btn.disabled = false;
