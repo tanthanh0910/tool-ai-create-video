@@ -508,16 +508,32 @@ async def search_pexels_videos(query: str, per_page: int = 5) -> list[dict]:
                     videos = []
                     for v in data.get("videos", []):
                         # Lấy video chất lượng phù hợp (HD hoặc SD)
+                        # CHỈ LẤY VIDEO NGANG THỰC SỰ (aspect ratio >= 1.5)
                         for vf in v.get("video_files", []):
-                            if vf.get("quality") in ["hd", "sd"] and vf.get("width", 0) >= 720:
+                            vf_width = vf.get("width", 0)
+                            vf_height = vf.get("height", 0)
+                            
+                            if vf_height == 0:
+                                continue
+                            
+                            # Tính tỷ lệ khung hình - PHẢI >= 1.5 để là landscape thực sự
+                            # 16:9 = 1.78, 4:3 = 1.33, 1:1 = 1.0, 9:16 = 0.56
+                            aspect_ratio = vf_width / vf_height
+                            is_true_landscape = aspect_ratio >= 1.5  # Chỉ chấp nhận >= 1.5
+                            is_good_quality = vf.get("quality") in ["hd", "sd"] and vf_width >= 1280
+                            
+                            if is_true_landscape and is_good_quality:
+                                print(f"        [Pexels] ✓ LANDSCAPE video: {vf_width}x{vf_height} (ratio: {aspect_ratio:.2f})")
                                 videos.append({
                                     "id": v["id"],
                                     "url": vf["link"],
-                                    "width": vf["width"],
-                                    "height": vf["height"],
+                                    "width": vf_width,
+                                    "height": vf_height,
                                     "duration": v.get("duration", 10),
                                 })
                                 break
+                            else:
+                                print(f"        [Pexels] ✗ Skip video: {vf_width}x{vf_height} (ratio: {aspect_ratio:.2f}, need >= 1.5)")
                     return videos
                 else:
                     print(f"  [!] Pexels API error: {resp.status}")
@@ -528,7 +544,7 @@ async def search_pexels_videos(query: str, per_page: int = 5) -> list[dict]:
 
 
 async def search_pexels_images(query: str, per_page: int = 5) -> list[dict]:
-    """Tìm ảnh từ Pexels API."""
+    """Tìm ảnh từ Pexels API - CHỈ LẤY ẢNH NGANG."""
     if not PEXELS_API_KEY:
         print("  [!] Cần PEXELS_API_KEY trong .env")
         return []
@@ -544,11 +560,25 @@ async def search_pexels_images(query: str, per_page: int = 5) -> list[dict]:
                     data = await resp.json()
                     images = []
                     for p in data.get("photos", []):
-                        images.append({
-                            "id": p["id"],
-                            "url": p["src"]["large2x"],  # Ảnh chất lượng cao
-                            "url_landscape": p["src"].get("landscape", p["src"]["large2x"]),  # Ảnh ngang
-                        })
+                        # Kiểm tra kích thước ảnh gốc - CHỈ LẤY ẢNH NGANG
+                        img_width = p.get("width", 0)
+                        img_height = p.get("height", 0)
+                        
+                        if img_height == 0:
+                            continue
+                        
+                        aspect_ratio = img_width / img_height
+                        if aspect_ratio >= 1.3:  # Chỉ lấy ảnh ngang (>= 1.3)
+                            print(f"        [Pexels] ✓ LANDSCAPE image: {img_width}x{img_height} (ratio: {aspect_ratio:.2f})")
+                            images.append({
+                                "id": p["id"],
+                                "url": p["src"]["large2x"],  # Ảnh chất lượng cao
+                                "url_landscape": p["src"].get("landscape", p["src"]["large2x"]),  # Ảnh ngang
+                                "width": img_width,
+                                "height": img_height,
+                            })
+                        else:
+                            print(f"        [Pexels] ✗ Skip portrait image: {img_width}x{img_height} (ratio: {aspect_ratio:.2f})")
                     return images
                 else:
                     print(f"  [!] Pexels API error: {resp.status}")
@@ -627,28 +657,66 @@ def get_video_duration(video_path: str) -> float:
 
 def resize_video_for_short(input_path: str, output_path: str, target_duration: float = None) -> str | None:
     """
-    Resize video về kích thước chuẩn (1920x1080 landscape - YouTube style).
+    Resize video về kích thước chuẩn 1920x1080 (16:9 landscape).
+    XỬ LÝ CẢ VIDEO DỌC - crop phần giữa và scale về landscape.
     """
     try:
-        target_w, target_h = Config.VIDEO_WIDTH, Config.VIDEO_HEIGHT
+        target_w, target_h = 1920, 1080  # HARDCODE 16:9 landscape
         
-        # Filter: scale + pad để fit 16:9 landscape
-        filter_complex = (
-            f"scale={target_w}:{target_h}:force_original_aspect_ratio=decrease,"
-            f"pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2:black,"
-            f"format=yuv420p"
-        )
+        # Kiểm tra video nguồn
+        probe_cmd = [
+            "ffprobe", "-v", "quiet",
+            "-print_format", "json",
+            "-show_streams",
+            input_path,
+        ]
+        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+        src_w, src_h = 0, 0
+        try:
+            probe_data = json.loads(probe_result.stdout)
+            for stream in probe_data.get("streams", []):
+                if stream.get("codec_type") == "video":
+                    src_w = stream.get("width", 0)
+                    src_h = stream.get("height", 0)
+                    print(f"      [INPUT] Source video: {src_w}x{src_h}")
+                    break
+        except:
+            pass
+        
+        # XỬ LÝ VIDEO DỌC (portrait) - crop phần giữa rồi scale
+        if src_h > src_w and src_w > 0:
+            print(f"      [PORTRAIT->LANDSCAPE] Converting portrait to landscape!")
+            # Video dọc: crop phần giữa theo chiều ngang, giữ nguyên width
+            # Crop height = width * 9/16 để được tỷ lệ 16:9 khi xoay concept
+            crop_h = int(src_w * 9 / 16)
+            crop_y = (src_h - crop_h) // 2
+            filter_complex = (
+                f"crop={src_w}:{crop_h}:0:{crop_y},"  # Crop phần giữa
+                f"scale={target_w}:{target_h},"  # Scale về 1920x1080
+                f"setsar=1:1,"
+                f"format=yuv420p"
+            )
+        else:
+            # Video ngang hoặc vuông: scale và crop như bình thường
+            filter_complex = (
+                f"scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
+                f"crop={target_w}:{target_h},"
+                f"setsar=1:1,"
+                f"format=yuv420p"
+            )
         
         cmd = [
             "ffmpeg", "-y",
             "-i", input_path,
             "-vf", filter_complex,
+            "-aspect", "16:9",  # FORCE 16:9 aspect ratio
             "-r", str(Config.FPS),
             "-c:v", "libx264",
             "-preset", "fast",
             "-crf", "23",
             "-c:a", "aac",
             "-b:a", "128k",
+            "-movflags", "+faststart",
         ]
         
         if target_duration:
@@ -656,12 +724,27 @@ def resize_video_for_short(input_path: str, output_path: str, target_duration: f
         
         cmd.append(output_path)
         
+        print(f"      [FFMPEG] Filter: {filter_complex}")
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode != 0:
             print(f"      [!] FFmpeg resize error: {result.stderr[:300]}")
         
         if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+            # Verify output là landscape
+            verify_cmd = ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_streams", output_path]
+            verify_result = subprocess.run(verify_cmd, capture_output=True, text=True)
+            try:
+                verify_data = json.loads(verify_result.stdout)
+                for stream in verify_data.get("streams", []):
+                    if stream.get("codec_type") == "video":
+                        out_w = stream.get("width", 0)
+                        out_h = stream.get("height", 0)
+                        print(f"      [OUTPUT] Final video: {out_w}x{out_h} (landscape: {out_w > out_h})")
+                        break
+            except:
+                pass
+            
             size_kb = os.path.getsize(output_path) / 1024
             print(f"      Resized: {size_kb:.1f} KB")
             return output_path
@@ -672,12 +755,17 @@ def resize_video_for_short(input_path: str, output_path: str, target_duration: f
 
 
 def create_image_video(image_path: str, output_path: str, duration: float = 5.0) -> str | None:
-    """Tạo video từ ảnh tĩnh (1920x1080 landscape - YouTube style)."""
+    """Tạo video từ ảnh tĩnh (1920x1080 landscape - YouTube style).
+    CROP để fill full màn hình, không có viền đen.
+    """
     try:
-        # Scale ảnh về đúng kích thước 16:9, pad nếu cần
+        target_w, target_h = 1920, 1080  # HARDCODE 16:9 landscape
+        
+        # Scale ảnh để COVER toàn bộ, sau đó CROP chính giữa
         filter_complex = (
-            f"scale={Config.VIDEO_WIDTH}:{Config.VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,"
-            f"pad={Config.VIDEO_WIDTH}:{Config.VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2:black,"
+            f"scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
+            f"crop={target_w}:{target_h},"
+            f"setsar=1:1,"
             f"format=yuv420p"
         )
         
@@ -686,15 +774,18 @@ def create_image_video(image_path: str, output_path: str, duration: float = 5.0)
             "-loop", "1",
             "-i", image_path,
             "-vf", filter_complex,
+            "-aspect", "16:9",  # FORCE 16:9 aspect ratio
             "-t", str(duration),
             "-r", str(Config.FPS),
             "-c:v", "libx264",
             "-preset", "fast",
             "-crf", "23",
             "-pix_fmt", "yuv420p",
+            "-movflags", "+faststart",
             output_path,
         ]
         
+        print(f"      [IMAGE->VIDEO] Creating 1920x1080 video from image")
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode != 0:
@@ -897,12 +988,15 @@ def concatenate_videos(video_paths: list[str], output_path: str) -> str | None:
         with open(list_path, "r") as f:
             print(f.read())
         
-        # Dùng re-encode để đảm bảo tương thích
+        # Dùng re-encode để đảm bảo tương thích và đúng 1920x1080
+        # HARDCODE 1920x1080 để chắc chắn output là landscape
         cmd = [
             "ffmpeg", "-y",
             "-f", "concat",
             "-safe", "0",
             "-i", list_path,
+            "-vf", "scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,setsar=1:1,format=yuv420p",
+            "-aspect", "16:9",  # FORCE 16:9
             "-c:v", "libx264",
             "-preset", "fast",
             "-crf", "23",
@@ -912,7 +1006,7 @@ def concatenate_videos(video_paths: list[str], output_path: str) -> str | None:
             output_path,
         ]
         
-        print(f"    Running ffmpeg concat...")
+        print(f"    Running ffmpeg concat -> 1920x1080 (16:9)...")
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         # Cleanup list file
@@ -1145,7 +1239,7 @@ ANIMAL_CATEGORIES = {
 }
 
 
-def generate_animal_scripts(user_prompt: str, num_videos: int = 1, animals_per_video: int = 50) -> list[dict]:
+def generate_animal_scripts(user_prompt: str, num_videos: int = 1, animals_per_video: int = 10) -> list[dict]:
     """
     Tạo danh sách động vật từ ANIMAL_DATABASE (không dùng Ollama).
     Random theo chủ đề hoặc random tổng hợp.
