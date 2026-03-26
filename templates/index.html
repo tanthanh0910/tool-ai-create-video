@@ -270,7 +270,12 @@
         <div class="form-row">
             <div class="form-group">
                 <label>So luong video</label>
-                <input type="number" id="gen-num" value="3" min="1" max="20">
+                <input type="number" id="gen-num" value="1" min="1" max="20">
+            </div>
+            <div class="form-group">
+                <label>So dong vat / video</label>
+                <input type="number" id="gen-animals" value="10" min="1" max="100" 
+                       title="So luong dong vat trong moi video">
             </div>
             <div class="form-group">
                 <label>Ty le khung hinh</label>
@@ -280,6 +285,13 @@
                     <option value="square">⬜ Vuong 1:1 (Instagram)</option>
                 </select>
             </div>
+        </div>
+        
+        <!-- Animals count info -->
+        <div id="animals-info" style="background: #1a2a3a; border: 1px solid #2a4a5a; border-radius: 10px; padding: 12px; margin-bottom: 15px; font-size: 0.85em;">
+            <span id="animals-desc" style="color: #00d2ff;">
+                🦁 <b>10 dong vat</b> × 8 giay/con ≈ <b>~1 phut 20 giay</b> moi video
+            </span>
         </div>
         
         <!-- Orientation info -->
@@ -342,7 +354,10 @@
         document.addEventListener('DOMContentLoaded', function() {
             const orientationSelect = document.getElementById('gen-orientation');
             const orientationDesc = document.getElementById('orientation-desc');
+            const animalsInput = document.getElementById('gen-animals');
+            const animalsDesc = document.getElementById('animals-desc');
             
+            // Orientation change
             orientationSelect.addEventListener('change', function() {
                 const value = this.value;
                 if (value === 'landscape') {
@@ -353,6 +368,24 @@
                     orientationDesc.innerHTML = '⬜ <b>Video vuong 1080x1080</b> - Phu hop Instagram, Facebook';
                 }
             });
+            
+            // Animals count change
+            function updateAnimalsInfo() {
+                const count = parseInt(animalsInput.value) || 10;
+                const totalSeconds = count * 8; // ~8 giây mỗi con
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                let timeStr = '';
+                if (minutes > 0) {
+                    timeStr = `${minutes} phut ${seconds} giay`;
+                } else {
+                    timeStr = `${seconds} giay`;
+                }
+                animalsDesc.innerHTML = `🦁 <b>${count} dong vat</b> × 8 giay/con ≈ <b>~${timeStr}</b> moi video`;
+            }
+            
+            animalsInput.addEventListener('input', updateAnimalsInfo);
+            animalsInput.addEventListener('change', updateAnimalsInfo);
         });
         
         // Logging
@@ -450,6 +483,7 @@
             const prompt = document.getElementById('gen-prompt').value.trim();
             const num = parseInt(document.getElementById('gen-num').value) || 3;
             const orientation = document.getElementById('gen-orientation').value;
+            const animalsPerVideo = parseInt(document.getElementById('gen-animals').value) || 10;
             if (!prompt) { alert('Vui long nhap chu de video!'); return; }
 
             const btn = document.getElementById('btn-generate');
@@ -459,7 +493,7 @@
             await streamSSE('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, num, mode: currentMode, orientation }),
+                body: JSON.stringify({ prompt, num, mode: currentMode, orientation, animals_per_video: animalsPerVideo }),
             });
 
             btn.disabled = false;

@@ -77,13 +77,14 @@ def api_generate():
     num = data.get("num", 3)
     mode = data.get("mode", "ai")  # "ai" = tạo ảnh AI, "real" = ảnh/video thực
     orientation = data.get("orientation", "landscape")  # "landscape", "portrait", "square"
+    animals_per_video = data.get("animals_per_video", 10)  # Số động vật mỗi video
 
     # Nếu mode = "real" hoặc prompt liên quan đến động vật -> dùng animal generator
     animal_keywords = ["animal", "động vật", "con vật", "wildlife", "thú", "chim", "cá"]
     is_animal_topic = any(kw in prompt.lower() for kw in animal_keywords) or mode == "real"
     
     if is_animal_topic and PEXELS_API_KEY:
-        return api_generate_animal_video(prompt, num, orientation)
+        return api_generate_animal_video(prompt, num, orientation, animals_per_video)
     
     # Original AI generation flow
     def generate_stream():
@@ -181,7 +182,7 @@ def api_generate():
 
 # ---------- API: Generate Animal Videos (Real Images/Videos) ----------
 
-def api_generate_animal_video(prompt: str, num: int, orientation: str = "landscape"):
+def api_generate_animal_video(prompt: str, num: int, orientation: str = "landscape", animals_per_video: int = 10):
     """Tạo video động vật với hình ảnh/video thực từ Pexels."""
     
     # Xác định kích thước video dựa trên orientation
@@ -198,6 +199,7 @@ def api_generate_animal_video(prompt: str, num: int, orientation: str = "landsca
     def generate_stream():
         yield log_event(f"🦁 Tao video dong vat voi hinh anh/video THUC")
         yield log_event(f"📐 Kich thuoc: {video_width}x{video_height} ({orientation_label})")
+        yield log_event(f"🔢 So dong vat moi video: {animals_per_video}")
         yield log_event(f"Chu de: {prompt}, So video: {num}")
         yield progress_event(5)
 
@@ -231,10 +233,10 @@ def api_generate_animal_video(prompt: str, num: int, orientation: str = "landsca
             }]
         else:
             # Tạo danh sách động vật random từ database
-            # num = số video, mỗi video mặc định 50 động vật
-            yield log_event(f"Dang tao danh sach {num} video, moi video 50 dong vat...")
+            # num = số video, animals_per_video = số động vật mỗi video
+            yield log_event(f"Dang tao danh sach {num} video, moi video {animals_per_video} dong vat...")
             try:
-                scripts = generate_animal_scripts(prompt, num_videos=num, animals_per_video=50)
+                scripts = generate_animal_scripts(prompt, num_videos=num, animals_per_video=animals_per_video)
                 total_animals = sum(len(s.get("animals", [])) for s in scripts)
                 yield log_event(f"Da tao {len(scripts)} video voi tong {total_animals} dong vat", "success")
             except Exception as e:
@@ -243,7 +245,7 @@ def api_generate_animal_video(prompt: str, num: int, orientation: str = "landsca
             
             # Fallback nếu không có kết quả
             if not scripts:
-                yield log_event("Dung danh sach mac dinh 50 dong vat", "warn")
+                yield log_event(f"Dung danh sach mac dinh {animals_per_video} dong vat", "warn")
                 from generators.animal_video_generator import ANIMAL_CATEGORIES
                 import random
                 all_animals = []
@@ -252,9 +254,9 @@ def api_generate_animal_video(prompt: str, num: int, orientation: str = "landsca
                 all_animals = list(set(all_animals))
                 random.shuffle(all_animals)
                 scripts = [{
-                    "title": "Khám phá 50 loài động vật",
+                    "title": f"Khám phá {animals_per_video} loài động vật",
                     "theme": "mixed",
-                    "animals": all_animals[:50]
+                    "animals": all_animals[:animals_per_video]
                 }]
         
         yield progress_event(15)
