@@ -16,9 +16,6 @@ from generators.script_generator import generate_scripts
 from generators.video_assembler import create_video_from_scenes
 from generators.animal_video_generator import (
     generate_animal_scripts,
-    generate_animal_video,
-    search_pexels_videos,
-    search_pexels_images,
     PEXELS_API_KEY,
 )
 

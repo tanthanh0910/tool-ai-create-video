@@ -1078,46 +1078,6 @@ async def create_animal_clip(
     return result
 
 
-async def generate_animal_video(
-    animals: list[str],
-    output_path: str,
-    clip_duration: float = 8.0,
-    use_video: bool = True,
-) -> str | None:
-    """
-    Tạo video hoàn chỉnh về nhiều động vật.
-    
-    Args:
-        animals: Danh sách tên động vật
-        output_path: Đường dẫn file output
-        clip_duration: Thời lượng mỗi clip (giây)
-        use_video: True = ưu tiên video, False = chỉ dùng ảnh
-    """
-    work_dir = os.path.join(Config.TEMP_DIR, "animal_video")
-    os.makedirs(work_dir, exist_ok=True)
-    
-    clips = []
-    for i, animal in enumerate(animals):
-        clip = await create_animal_clip(
-            animal_name=animal,
-            work_dir=work_dir,
-            clip_index=i,
-            use_video=use_video,
-            clip_duration=clip_duration,
-        )
-        if clip:
-            clips.append(clip)
-    
-    if not clips:
-        print("  [!] No clips created")
-        return None
-    
-    print(f"  Concatenating {len(clips)} clips...")
-    result = concatenate_videos(clips, output_path)
-    
-    return result
-
-
 # ============ DANH SÁCH ĐỘNG VẬT THEO CHỦ ĐỀ ============
 # Chỉ lấy những động vật có trong ANIMAL_DATABASE (tiếng Anh)
 
