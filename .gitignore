@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+
+# Environment
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Output / Temp
+output/
+temp/
+*.mp4
+*.mp3
+*.wav
+
+# IDE
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Video Tool</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f0f1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            font-size: 2.2em;
+            background: linear-gradient(135deg, #00d2ff, #7b2ff7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        .header p {
+            color: #888;
+            font-size: 0.95em;
+        }
+
+        /* Form elements */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #aaa;
+            font-weight: 500;
+            font-size: 0.9em;
+        }
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 14px 16px;
+            background: #1a1a2e;
+            border: 1px solid #2a2a3e;
+            border-radius: 10px;
+            color: #e0e0e0;
+            font-size: 1em;
+            transition: border 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #7b2ff7;
+        }
+        input::placeholder { color: #555; }
+
+        /* Button */
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #7b2ff7, #00d2ff);
+            color: white;
+        }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Progress / Log */
+        .progress-area {
+            margin-top: 30px;
+            display: none;
+        }
+        .progress-area.active { display: block; }
+
+        .progress-bar-container {
+            background: #1a1a2e;
+            border-radius: 8px;
+            height: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #7b2ff7, #00d2ff);
+            border-radius: 8px;
+            width: 0%;
+            transition: width 0.5s;
+        }
+
+        .log-box {
+            background: #0a0a15;
+            border: 1px solid #1a1a2e;
+            border-radius: 10px;
+            padding: 16px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.85em;
+            line-height: 1.6;
+        }
+        .log-box .log-line { margin-bottom: 2px; }
+        .log-box .log-info { color: #00d2ff; }
+        .log-box .log-success { color: #00ff88; }
+        .log-box .log-error { color: #ff4466; }
+        .log-box .log-warn { color: #ffaa00; }
+
+        /* Results */
+        .results {
+            margin-top: 25px;
+            display: none;
+        }
+        .results.active { display: block; }
+        .results h3 {
+            color: #00ff88;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        .result-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: #1a1a2e;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .result-item .name {
+            color: #e0e0e0;
+            font-size: 0.9em;
+        }
+        .result-item a {
+            color: #00d2ff;
+            text-decoration: none;
+            font-size: 0.85em;
+            padding: 6px 14px;
+            border: 1px solid #00d2ff;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+        .result-item a:hover {
+            background: #00d2ff;
+            color: #0f0f1a;
+        }
+
+        /* Spinner */
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #333;
+            border-top-color: #00d2ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Mode buttons */
+        .mode-btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #2a2a3e;
+            border-radius: 8px;
+            background: #1a1a2e;
+            color: #888;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s;
+        }
+        .mode-btn:hover {
+            background: #22223a;
+            color: #ccc;
+        }
+        .mode-btn.active {
+            border-color: #7b2ff7;
+            background: linear-gradient(135deg, #1a1a3e, #2a1a4e);
+            color: #00d2ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>AI Video Tool</h1>
+            <p>Tao video AI tu prompt hoac video dong vat voi hinh anh thuc</p>
+        </div>
+
+        <!-- Mode Selection -->
+        <div class="form-group">
+            <label>Che do tao video</label>
+            <div style="display: flex; gap: 10px; margin-top: 8px;">
+                <button type="button" class="mode-btn active" id="mode-ai" onclick="selectMode('ai')">
+                    🎨 AI Art (HuggingFace)
+                </button>
+                <button type="button" class="mode-btn" id="mode-real" onclick="selectMode('real')">
+                    📷 Hinh/Video Thuc (Pexels)
+                </button>
+            </div>
+            <p id="mode-desc" style="color: #888; font-size: 0.85em; margin-top: 8px;">
+                Tao hinh anh bang AI - phu hop voi video truyen thuyet, phim, sang tao
+            </p>
+        </div>
+
+        <!-- Form -->
+        <div class="form-group">
+            <label>Chu de video</label>
+            <input type="text" id="gen-prompt"
+                   placeholder="VD: hay lam nhieu video ngan ve the gioi dong vat">
+        </div>
+        <div class="form-group">
+            <label>So luong video</label>
+            <input type="number" id="gen-num" value="3" min="1" max="20">
+        </div>
+        
+        <!-- Info box for Real mode -->
+        <div id="real-mode-info" style="display: none; background: #1a2a1a; border: 1px solid #2a4a2a; border-radius: 10px; padding: 14px; margin-bottom: 15px; color: #88cc88; font-size: 0.85em;">
+            <b>🦁 Che do Video Dong Vat:</b><br>
+            • Tim hinh anh/video THUC tu Pexels (mien phi)<br>
+            • Doc ten dong vat bang giong Viet (Edge TTS)<br>
+            • Phu hop cho video giao duc, kham pha dong vat<br>
+            <span style="color: #ffaa00;">⚠️ Can PEXELS_API_KEY trong file .env</span>
+        </div>
+        
+        <button class="btn btn-primary" id="btn-generate" onclick="startGenerate()">
+            Bat Dau Tao Video
+        </button>
+
+        <!-- Progress -->
+        <div class="progress-area" id="progress-area">
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <div class="log-box" id="log-box"></div>
+        </div>
+
+        <!-- Results -->
+        <div class="results" id="results">
+            <h3>Ket Qua</h3>
+            <div id="results-list"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = 'ai';
+        
+        // Mode selection
+        function selectMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('mode-' + mode).classList.add('active');
+            
+            const desc = document.getElementById('mode-desc');
+            const realInfo = document.getElementById('real-mode-info');
+            
+            if (mode === 'ai') {
+                desc.textContent = 'Tao hinh anh bang AI - phu hop voi video truyen thuyet, phim, sang tao';
+                realInfo.style.display = 'none';
+            } else {
+                desc.textContent = 'Tim hinh anh/video thuc tu Internet - phu hop voi video dong vat, thien nhien';
+                realInfo.style.display = 'block';
+            }
+        }
+        
+        // Logging
+        function clearLog() {
+            document.getElementById('log-box').innerHTML = '';
+            document.getElementById('progress-bar').style.width = '0%';
+            document.getElementById('results').classList.remove('active');
+            document.getElementById('results-list').innerHTML = '';
+        }
+
+        function addLog(msg, type = 'info') {
+            const box = document.getElementById('log-box');
+            const line = document.createElement('div');
+            line.className = 'log-line log-' + type;
+            line.textContent = msg;
+            box.appendChild(line);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function setProgress(pct) {
+            document.getElementById('progress-bar').style.width = pct + '%';
+        }
+
+        function showResults(files) {
+            const list = document.getElementById('results-list');
+            list.innerHTML = '';
+            files.forEach(f => {
+                const name = f.split('/').pop();
+                const item = document.createElement('div');
+                item.className = 'result-item';
+                item.innerHTML = `
+                    <span class="name">${name}</span>
+                    <a href="/download/${encodeURIComponent(f)}" target="_blank">Tai Xuong</a>
+                `;
+                list.appendChild(item);
+            });
+            document.getElementById('results').classList.add('active');
+        }
+
+        // SSE stream helper
+        function streamSSE(url, options = {}) {
+            return new Promise((resolve) => {
+                clearLog();
+                document.getElementById('progress-area').classList.add('active');
+
+                fetch(url, options).then(response => {
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+
+                    function read() {
+                        reader.read().then(({ done, value }) => {
+                            if (done) {
+                                resolve();
+                                return;
+                            }
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split('\n');
+                            buffer = lines.pop();
+
+                            for (const line of lines) {
+                                if (line.startsWith('data: ')) {
+                                    try {
+                                        const data = JSON.parse(line.substring(6));
+                                        handleEvent(data);
+                                    } catch(e) {}
+                                }
+                            }
+                            read();
+                        });
+                    }
+                    read();
+                });
+            });
+        }
+
+        function handleEvent(data) {
+            if (data.type === 'log') {
+                addLog(data.message, data.level || 'info');
+            } else if (data.type === 'progress') {
+                setProgress(data.percent);
+            } else if (data.type === 'done') {
+                setProgress(100);
+                addLog(data.message, 'success');
+                if (data.files && data.files.length > 0) {
+                    showResults(data.files);
+                }
+            } else if (data.type === 'error') {
+                addLog(data.message, 'error');
+            }
+        }
+
+        // Start Generate
+        async function startGenerate() {
+            const prompt = document.getElementById('gen-prompt').value.trim();
+            const num = parseInt(document.getElementById('gen-num').value) || 3;
+            if (!prompt) { alert('Vui long nhap chu de video!'); return; }
+
+            const btn = document.getElementById('btn-generate');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Dang tao video...';
+
+            await streamSSE('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt, num, mode: currentMode }),
+            });
+
+            btn.disabled = false;
+            btn.textContent = 'Bat Dau Tao Video';
+        }
+    </script>
+</body>
+</html>
