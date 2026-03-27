@@ -260,22 +260,31 @@
             </p>
         </div>
 
+        <!-- Category Selection (only for Real mode) -->
+        <div class="form-group" id="category-group" style="display: none;">
+            <label>Danh muc</label>
+            <select id="gen-category" onchange="onCategoryChange()">
+                <option value="animal">🦁 Dong vat</option>
+                <option value="plant">🌿 Thuc vat</option>
+            </select>
+        </div>
+
         <!-- Form -->
         <div class="form-group">
             <label>Chu de video</label>
             <input type="text" id="gen-prompt"
                    placeholder="VD: hay lam nhieu video ngan ve the gioi dong vat">
         </div>
-        
+
         <div class="form-row">
             <div class="form-group">
                 <label>So luong video</label>
                 <input type="number" id="gen-num" value="1" min="1" max="20">
             </div>
             <div class="form-group">
-                <label>So dong vat / video</label>
-                <input type="number" id="gen-animals" value="10" min="1" max="100" 
-                       title="So luong dong vat trong moi video">
+                <label id="items-label">So dong vat / video</label>
+                <input type="number" id="gen-animals" value="10" min="1" max="100"
+                       title="So luong dong vat/thuc vat trong moi video">
             </div>
             <div class="form-group">
                 <label>Ty le khung hinh</label>
@@ -286,8 +295,8 @@
                 </select>
             </div>
         </div>
-        
-        <!-- Animals count info -->
+
+        <!-- Items count info -->
         <div id="animals-info" style="background: #1a2a3a; border: 1px solid #2a4a5a; border-radius: 10px; padding: 12px; margin-bottom: 15px; font-size: 0.85em;">
             <span id="animals-desc" style="color: #00d2ff;">
                 🦁 <b>10 dong vat</b> × 8 giay/con ≈ <b>~1 phut 20 giay</b> moi video
@@ -303,11 +312,21 @@
         
         <!-- Info box for Real mode -->
         <div id="real-mode-info" style="display: none; background: #1a2a1a; border: 1px solid #2a4a2a; border-radius: 10px; padding: 14px; margin-bottom: 15px; color: #88cc88; font-size: 0.85em;">
-            <b>🦁 Che do Video Dong Vat:</b><br>
-            • Tim hinh anh/video THUC tu Pexels (mien phi)<br>
-            • Doc ten dong vat bang giong Viet (Edge TTS)<br>
-            • <b>Tieng keu:</b> Dat file .mp3 vao thu muc <code>sounds/</code> (vd: lion.mp3, cat.mp3)<br>
-            <span style="color: #ffaa00;">⚠️ Can PEXELS_API_KEY trong file .env</span>
+            <div id="info-animal">
+                <b>🦁 Che do Video Dong Vat:</b><br>
+                • Tim hinh anh/video THUC tu Pexels (mien phi)<br>
+                • Doc ten dong vat bang giong Viet (Edge TTS)<br>
+                • <b>Tieng keu:</b> Dat file .mp3 vao thu muc <code>sounds/</code> (vd: lion.mp3, cat.mp3)<br>
+                <span style="color: #ffaa00;">⚠️ Can PEXELS_API_KEY trong file .env</span>
+            </div>
+            <div id="info-plant" style="display: none;">
+                <b>🌿 Che do Video Thuc Vat:</b><br>
+                • Tim hinh anh/video THUC tu Pexels (mien phi)<br>
+                • Doc ten thuc vat bang giong Viet (Edge TTS)<br>
+                • <b>Nhac nen:</b> File <code>sounds/plants/plants.mp3</code> (tu dong lap lai neu video dai hon)<br>
+                • Khong co tieng keu, chi doc ten + nhac nen<br>
+                <span style="color: #ffaa00;">⚠️ Can PEXELS_API_KEY trong file .env</span>
+            </div>
         </div>
         
         <button class="btn btn-primary" id="btn-generate" onclick="startGenerate()">
@@ -331,23 +350,63 @@
 
     <script>
         let currentMode = 'ai';
-        
+        let currentCategory = 'animal';
+
         // Mode selection
         function selectMode(mode) {
             currentMode = mode;
             document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('mode-' + mode).classList.add('active');
-            
+
             const desc = document.getElementById('mode-desc');
             const realInfo = document.getElementById('real-mode-info');
-            
+            const categoryGroup = document.getElementById('category-group');
+
             if (mode === 'ai') {
                 desc.textContent = 'Tao hinh anh bang AI - phu hop voi video truyen thuyet, phim, sang tao';
                 realInfo.style.display = 'none';
+                categoryGroup.style.display = 'none';
             } else {
-                desc.textContent = 'Tim hinh anh/video thuc tu Internet - phu hop voi video dong vat, thien nhien';
+                desc.textContent = 'Tim hinh anh/video thuc tu Internet - phu hop voi video dong vat, thuc vat';
                 realInfo.style.display = 'block';
+                categoryGroup.style.display = 'block';
             }
+            onCategoryChange();
+        }
+
+        // Category change
+        function onCategoryChange() {
+            currentCategory = document.getElementById('gen-category').value;
+            const label = document.getElementById('items-label');
+            const prompt = document.getElementById('gen-prompt');
+            const infoAnimal = document.getElementById('info-animal');
+            const infoPlant = document.getElementById('info-plant');
+
+            if (currentCategory === 'plant') {
+                label.textContent = 'So thuc vat / video';
+                prompt.placeholder = 'VD: hay lam video ve cac loai hoa va cay canh';
+                if (infoAnimal) infoAnimal.style.display = 'none';
+                if (infoPlant) infoPlant.style.display = 'block';
+            } else {
+                label.textContent = 'So dong vat / video';
+                prompt.placeholder = 'VD: hay lam nhieu video ngan ve the gioi dong vat';
+                if (infoAnimal) infoAnimal.style.display = 'block';
+                if (infoPlant) infoPlant.style.display = 'none';
+            }
+            updateItemsInfo();
+        }
+
+        function updateItemsInfo() {
+            const count = parseInt(document.getElementById('gen-animals').value) || 10;
+            const secPerItem = currentCategory === 'plant' ? 6 : 8;
+            const icon = currentCategory === 'plant' ? '🌿' : '🦁';
+            const itemName = currentCategory === 'plant' ? 'thuc vat' : 'dong vat';
+            const totalSeconds = count * secPerItem;
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            let timeStr = minutes > 0 ? `${minutes} phut ${seconds} giay` : `${seconds} giay`;
+            document.getElementById('animals-desc').innerHTML =
+                `${icon} <b>${count} ${itemName}</b> × ${secPerItem} giay/loai ≈ <b>~${timeStr}</b> moi video`;
         }
         
         // Orientation change handler
@@ -369,23 +428,9 @@
                 }
             });
             
-            // Animals count change
-            function updateAnimalsInfo() {
-                const count = parseInt(animalsInput.value) || 10;
-                const totalSeconds = count * 8; // ~8 giây mỗi con
-                const minutes = Math.floor(totalSeconds / 60);
-                const seconds = totalSeconds % 60;
-                let timeStr = '';
-                if (minutes > 0) {
-                    timeStr = `${minutes} phut ${seconds} giay`;
-                } else {
-                    timeStr = `${seconds} giay`;
-                }
-                animalsDesc.innerHTML = `🦁 <b>${count} dong vat</b> × 8 giay/con ≈ <b>~${timeStr}</b> moi video`;
-            }
-            
-            animalsInput.addEventListener('input', updateAnimalsInfo);
-            animalsInput.addEventListener('change', updateAnimalsInfo);
+            // Items count change - dùng hàm global updateItemsInfo
+            animalsInput.addEventListener('input', updateItemsInfo);
+            animalsInput.addEventListener('change', updateItemsInfo);
         });
         
         // Logging
@@ -493,7 +538,7 @@
             await streamSSE('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, num, mode: currentMode, orientation, animals_per_video: animalsPerVideo }),
+                body: JSON.stringify({ prompt, num, mode: currentMode, orientation, animals_per_video: animalsPerVideo, category: currentCategory }),
             });
 
             btn.disabled = false;

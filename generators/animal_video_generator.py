@@ -466,17 +466,29 @@ async def _pexels_video_search_single(query: str, per_page: int, orientation: st
     headers = {"Authorization": PEXELS_API_KEY}
     params = {"query": query, "per_page": per_page, "orientation": orientation}
 
+    print(f"        [API REQUEST] GET {url}")
+    print(f"        [API REQUEST] params: {json.dumps(params)}")
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers, params=params) as resp:
                 if resp.status != 200:
-                    print(f"        [Pexels] API error: {resp.status}")
+                    print(f"        [API RESPONSE] HTTP {resp.status} ERROR")
                     return []
 
                 data = await resp.json()
+                total_results = data.get("total_results", 0)
+                raw_videos = data.get("videos", [])
+                print(f"        [API RESPONSE] HTTP 200 | total_results={total_results} | returned={len(raw_videos)} videos")
+
                 videos = []
-                for v in data.get("videos", []):
-                    # Ưu tiên video file chất lượng cao nhất phù hợp
+                for vi, v in enumerate(raw_videos):
+                    v_id = v.get("id", "?")
+                    v_url = v.get("url", "")
+                    v_dur = v.get("duration", 0)
+                    files_count = len(v.get("video_files", []))
+                    print(f"        [RESULT {vi}] id={v_id} dur={v_dur}s files={files_count} page={v_url}")
+
                     best_file = None
                     best_res = 0
                     for vf in v.get("video_files", []):
@@ -498,23 +510,29 @@ async def _pexels_video_search_single(query: str, per_page: int, orientation: st
                     if best_file:
                         bw = best_file.get("width", 0)
                         bh = best_file.get("height", 0)
-                        print(f"        [Pexels] ✓ {ratio_label} video: {bw}x{bh} (ratio: {bw/bh:.2f})")
+                        vid_url = best_file["link"]
+                        print(f"          -> MATCHED: {bw}x{bh} quality={best_file.get('quality')} url={vid_url[:80]}...")
                         videos.append({
-                            "id": v["id"],
-                            "url": best_file["link"],
+                            "id": v_id,
+                            "url": vid_url,
+                            "page_url": v_url,  # URL trang Pexels để validate
                             "width": bw,
                             "height": bh,
-                            "duration": v.get("duration", 10),
+                            "duration": v_dur,
                         })
+                    else:
+                        print(f"          -> SKIP (no matching file)")
 
+                print(f"        [SUMMARY] {len(videos)}/{len(raw_videos)} videos matched filters")
                 return videos
     except Exception as e:
-        print(f"        [Pexels] Search error: {e}")
+        print(f"        [API ERROR] {e}")
         return []
 
 
 async def search_pexels_videos(query: str, per_page: int = 10, orientation: str = "landscape") -> list[dict]:
     """Tìm video từ Pexels API với nhiều lượt thử query từ chính xác → tổng quát.
+    Có validation để lọc bỏ video không liên quan (người, động vật khác).
 
     Args:
         query: Từ khóa tìm kiếm
@@ -527,18 +545,112 @@ async def search_pexels_videos(query: str, per_page: int = 10, orientation: str 
 
     min_ratio, max_ratio, ratio_label = _get_aspect_ratio_range(orientation)
     queries = _build_search_queries(query)
+    
+    # Lấy tên động vật chính để validate kết quả
+    animal_core = _extract_animal_core_name(query)
+    print(f"      [Pexels Video] Core name for validation: '{animal_core}'")
 
     for qi, q in enumerate(queries):
         print(f"      [Pexels Video] Try {qi+1}/{len(queries)}: '{q}'")
         videos = await _pexels_video_search_single(q, per_page, orientation,
                                                      min_ratio, max_ratio, ratio_label)
         if videos:
-            print(f"      [Pexels Video] ✓ Found {len(videos)} videos with query '{q}'")
-            return videos
-        print(f"      [Pexels Video] ✗ No results for '{q}'")
+            # Validate: lọc bỏ video có người hoặc động vật khác
+            validated = _validate_animal_videos(videos, animal_core)
+            if validated:
+                print(f"      [Pexels Video] ✓ Found {len(validated)} VALIDATED videos with query '{q}'")
+                return validated
+            else:
+                print(f"      [Pexels Video] ⚠ Found {len(videos)} videos but NONE validated for '{animal_core}'")
+                # Tiếp tục thử query khác
+        else:
+            print(f"      [Pexels Video] ✗ No results for '{q}'")
 
-    print(f"      [Pexels Video] ✗ No videos found after {len(queries)} attempts")
+    print(f"      [Pexels Video] ⚠ No validated videos, returning empty (will fallback to image)")
     return []
+
+
+def _extract_animal_core_name(query: str) -> str:
+    """Trích xuất tên động vật chính từ query (1-2 từ đầu, bỏ filler)."""
+    filler_words = {
+        "wildlife", "animal", "nature", "africa", "ocean", "sea", "underwater",
+        "forest", "jungle", "tropical", "arctic", "snow", "desert", "mountain",
+        "cute", "pet", "domestic", "farm", "colorful", "beautiful", "majestic",
+        "flying", "running", "swimming", "jumping", "hunting", "eating",
+        "close", "up", "wild", "safari", "face", "macro",
+    }
+    words = query.lower().split()
+    core = [w for w in words if w not in filler_words]
+    return " ".join(core[:2]) if core else words[0] if words else ""
+
+
+def _validate_animal_videos(videos: list[dict], animal_core: str) -> list[dict]:
+    """
+    Lọc video có liên quan đến tên động vật.
+    - Bỏ video có người (people, person, woman, man, etc.)
+    - Bỏ video có tên động vật khác trong URL
+    
+    Ví dụ: animal_core="lion" → skip video có URL chứa "tiger", "elephant", "person"
+    """
+    if not animal_core:
+        return videos
+    
+    # Từ khóa liên quan đến người - SKIP những video này
+    people_keywords = {
+        "person", "people", "woman", "man", "girl", "boy", "child", "children",
+        "kid", "kids", "human", "hand", "hands", "finger", "fingers",
+        "farmer", "keeper", "trainer", "tourist", "couple", "family",
+        "holding", "feeding", "petting", "riding",
+    }
+    
+    # Danh sách các động vật phổ biến - nếu URL chứa tên khác thì skip
+    common_animals = {
+        "lion", "tiger", "elephant", "giraffe", "zebra", "rhino", "hippo",
+        "bear", "panda", "wolf", "fox", "deer", "horse", "cow", "pig",
+        "dog", "cat", "rabbit", "monkey", "gorilla", "chimpanzee",
+        "dolphin", "whale", "shark", "fish", "turtle", "crocodile",
+        "eagle", "owl", "parrot", "penguin", "flamingo", "duck", "chicken",
+        "snake", "lizard", "frog", "butterfly", "bee", "spider",
+        "kangaroo", "koala", "camel", "sheep", "goat",
+    }
+    
+    animal_words = set(animal_core.lower().split())
+    
+    validated = []
+    for v in videos:
+        url = v.get("page_url", v.get("url", "")).lower()
+        
+        # 1. Kiểm tra URL có chứa từ khóa về NGƯỜI không → SKIP
+        found_people = False
+        for people_word in people_keywords:
+            if people_word in url:
+                print(f"        [VALIDATE] SKIP id={v.get('id')} - URL contains PEOPLE keyword '{people_word}'")
+                found_people = True
+                break
+        
+        if found_people:
+            continue
+        
+        # 2. Kiểm tra URL có chứa tên động vật KHÁC không → SKIP
+        found_wrong_animal = False
+        for other_animal in common_animals:
+            if other_animal in url and other_animal not in animal_words:
+                print(f"        [VALIDATE] SKIP id={v.get('id')} - URL contains '{other_animal}' (want '{animal_core}')")
+                found_wrong_animal = True
+                break
+        
+        if found_wrong_animal:
+            continue
+        
+        # 3. Ưu tiên video có URL chứa đúng tên động vật
+        if any(aw in url for aw in animal_words):
+            print(f"        [VALIDATE] ✓ EXACT MATCH id={v.get('id')} - URL contains '{animal_core}'")
+            validated.insert(0, v)  # Ưu tiên lên đầu
+        else:
+            print(f"        [VALIDATE] ~ NEUTRAL id={v.get('id')} - URL neutral")
+            validated.append(v)
+    
+    return validated
 
 
 async def _pexels_image_search_single(query: str, per_page: int, orientation: str,
@@ -549,38 +661,52 @@ async def _pexels_image_search_single(query: str, per_page: int, orientation: st
     headers = {"Authorization": PEXELS_API_KEY}
     params = {"query": query, "per_page": per_page, "orientation": orientation}
 
+    print(f"        [API REQUEST] GET {url}")
+    print(f"        [API REQUEST] params: {json.dumps(params)}")
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers, params=params) as resp:
                 if resp.status != 200:
-                    print(f"        [Pexels] API error: {resp.status}")
+                    print(f"        [API RESPONSE] HTTP {resp.status} ERROR")
                     return []
 
                 data = await resp.json()
+                total_results = data.get("total_results", 0)
+                raw_photos = data.get("photos", [])
+                print(f"        [API RESPONSE] HTTP 200 | total_results={total_results} | returned={len(raw_photos)} photos")
+
                 images = []
-                for p in data.get("photos", []):
+                for pi, p in enumerate(raw_photos):
                     img_width = p.get("width", 0)
                     img_height = p.get("height", 0)
+                    p_url = p.get("url", "")
+                    alt = p.get("alt", "")
 
                     if img_height == 0:
                         continue
 
                     aspect_ratio = img_width / img_height
+                    print(f"        [RESULT {pi}] id={p['id']} {img_width}x{img_height} ratio={aspect_ratio:.2f} alt=\"{alt[:60]}\"")
+
                     if min_ratio <= aspect_ratio <= max_ratio:
-                        print(f"        [Pexels] ✓ {ratio_label} image: {img_width}x{img_height} (ratio: {aspect_ratio:.2f})")
+                        img_url = p["src"]["large2x"]
+                        print(f"          -> MATCHED: {img_url[:80]}...")
                         images.append({
                             "id": p["id"],
-                            "url": p["src"]["large2x"],
-                            "url_landscape": p["src"].get("landscape", p["src"]["large2x"]),
-                            "url_portrait": p["src"].get("portrait", p["src"]["large2x"]),
+                            "url": img_url,
+                            "url_landscape": p["src"].get("landscape", img_url),
+                            "url_portrait": p["src"].get("portrait", img_url),
                             "width": img_width,
                             "height": img_height,
                         })
                     else:
-                        print(f"        [Pexels] ✗ Skip image: {img_width}x{img_height} (ratio: {aspect_ratio:.2f}, need {min_ratio}-{max_ratio})")
+                        print(f"          -> SKIP (ratio {aspect_ratio:.2f} not in {min_ratio}-{max_ratio})")
+
+                print(f"        [SUMMARY] {len(images)}/{len(raw_photos)} images matched filters")
                 return images
     except Exception as e:
-        print(f"        [Pexels] Search error: {e}")
+        print(f"        [API ERROR] {e}")
         return []
 
 
@@ -1170,8 +1296,12 @@ def merge_audio_to_video(video_path: str, audio_path: str, output_path: str, ani
                 "[narration][original]amix=inputs=2:duration=longest:dropout_transition=1,volume=2.0[aout]",
                 "-map", "0:v:0", "-map", "[aout]",
                 "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-video_track_timescale", "24000",
                 "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
-                "-t", str(video_duration), "-movflags", "+faststart",
+                "-t", str(video_duration),
+                "-avoid_negative_ts", "make_zero",
+                "-fflags", "+genpts",
+                "-movflags", "+faststart",
                 output_path,
             ]
             result = subprocess.run(cmd, capture_output=True, text=True)
@@ -1190,8 +1320,12 @@ def merge_audio_to_video(video_path: str, audio_path: str, output_path: str, ani
                 f"[1:a]aresample=44100,apad=whole_dur={video_duration},volume=1.5[aout]",
                 "-map", "0:v:0", "-map", "[aout]",
                 "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-video_track_timescale", "24000",
                 "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
-                "-t", str(video_duration), "-movflags", "+faststart",
+                "-t", str(video_duration),
+                "-avoid_negative_ts", "make_zero",
+                "-fflags", "+genpts",
+                "-movflags", "+faststart",
                 output_path,
             ]
             subprocess.run(cmd, capture_output=True, text=True)
@@ -1258,31 +1392,61 @@ def concatenate_videos(video_paths: list[str], output_path: str,
         else:
             aspect_str = "1:1"
         
-        # Dùng re-encode + loudnorm để chuẩn hóa âm lượng đồng đều
+        # Concat bằng TS intermediate: chuẩn hóa tất cả clip về cùng format
+        # rồi nối bằng concat protocol (không có encoder delay tích lũy)
+        ts_files = []
+        print(f"    Step 1: Convert {len(valid_paths)} clips to TS...")
+
+        for idx, vp in enumerate(valid_paths):
+            print(f"      TS [{idx}] {vp}")
+            ts_path = output_path + f".part{idx:03d}.ts"
+            ts_cmd = [
+                "ffmpeg", "-y", "-i", vp,
+                "-vf", f"scale={target_width}:{target_height}:force_original_aspect_ratio=increase,crop={target_width}:{target_height},setsar=1:1,format=yuv420p",
+                "-r", str(Config.FPS),
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
+                "-bsf:v", "h264_mp4toannexb",
+                "-f", "mpegts",
+                ts_path,
+            ]
+            subprocess.run(ts_cmd, capture_output=True, text=True)
+            if os.path.exists(ts_path) and os.path.getsize(ts_path) > 1000:
+                ts_files.append(ts_path)
+
+        if not ts_files:
+            print(f"    [!] No TS files created")
+            if os.path.exists(list_path):
+                os.remove(list_path)
+            return None
+
+        # Concat bằng concat protocol: file:part000.ts|file:part001.ts|...
+        concat_input = "concat:" + "|".join(os.path.abspath(t) for t in ts_files)
+
         cmd = [
             "ffmpeg", "-y",
-            "-f", "concat",
-            "-safe", "0",
-            "-i", list_path,
-            "-vf", f"scale={target_width}:{target_height}:force_original_aspect_ratio=increase,crop={target_width}:{target_height},setsar=1:1,format=yuv420p",
+            "-i", concat_input,
             "-af", "dynaudnorm=f=250:g=15:p=0.95:m=10",
-            "-aspect", aspect_str,
             "-c:v", "libx264",
             "-preset", "fast",
             "-crf", "23",
+            "-aspect", aspect_str,
             "-c:a", "aac",
             "-b:a", "128k",
             "-ar", "44100",
             "-movflags", "+faststart",
             output_path,
         ]
-        
-        print(f"    Running ffmpeg concat -> {target_width}x{target_height} ({aspect_str})...")
+
+        print(f"    Step 2: Concat {len(ts_files)} TS -> MP4 ({target_width}x{target_height})...")
         result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        # Cleanup list file
+
+        # Cleanup temp files
         if os.path.exists(list_path):
             os.remove(list_path)
+        for ts in ts_files:
+            if os.path.exists(ts):
+                os.remove(ts)
         
         if result.returncode != 0:
             print(f"    [!] FFmpeg error: {result.stderr[:500]}")
