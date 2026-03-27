@@ -314,7 +314,7 @@ def api_generate_animal_video(prompt: str, num: int, orientation: str = "landsca
                 
                 if clip:
                     clips.append((animal, clip))  # Lưu cả tên và đường dẫn
-                    yield log_event(f"    ✓ {animal} -> {clip}", "success")
+                    yield log_event(f"    ✓ {animal} (doc ten + tieng keu)", "success")
                 else:
                     yield log_event(f"    ✗ {animal} that bai", "error")
                 

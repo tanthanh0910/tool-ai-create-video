@@ -36,8 +36,6 @@ ANIMAL_DATABASE = {
     "giraffe": ("giraffe wildlife africa", "hươu cao cổ"),
     "zebra": ("zebra wildlife africa", "ngựa vằn"),
     "rhinoceros": ("rhinoceros wildlife", "tê giác"),
-    "rhino": ("rhinoceros wildlife", "tê giác"),
-    "hippopotamus": ("hippopotamus wildlife", "hà mã"),
     "hippo": ("hippopotamus wildlife", "hà mã"),
     "leopard": ("leopard wildlife", "báo"),
     "cheetah": ("cheetah running wildlife", "báo săn"),
@@ -338,7 +336,7 @@ ANIMAL_DATABASE = {
     "beluga whale": ("beluga whale white", "cá voi trắng"),
     "arctic ground squirrel": ("arctic ground squirrel", "sóc đất bắc cực"),
 
-    #Động vật Nam Cực
+    #Động vật Nam Cực => Đang thực hiện
     "emperor penguin": ("emperor penguin antarctica", "chim cánh cụt hoàng đế"),
     "adelie penguin": ("adelie penguin antarctica", "chim cánh cụt adelie"),
     "chinstrap penguin": ("chinstrap penguin antarctica", "chim cánh cụt quai mũ"),
@@ -502,9 +500,14 @@ async def search_pexels_videos(query: str, per_page: int = 5, orientation: str =
         print("  [!] Cần PEXELS_API_KEY trong .env")
         return []
     
+    # Thêm từ khóa để loại bỏ người/xe cộ, chỉ lấy hình động vật
+    # Pexels không hỗ trợ exclude, nên thêm "animal only" hoặc "no people" vào query
+    enhanced_query = f"{query} animal close up -people -human -person"
+    print(f"      [Pexels] Enhanced query: '{enhanced_query}'")
+    
     url = "https://api.pexels.com/videos/search"
     headers = {"Authorization": PEXELS_API_KEY}
-    params = {"query": query, "per_page": per_page, "orientation": orientation}
+    params = {"query": enhanced_query, "per_page": per_page * 2, "orientation": orientation}  # Lấy nhiều hơn để lọc
     
     # Xác định tỷ lệ aspect ratio cần lọc
     if orientation == "portrait":
@@ -570,9 +573,13 @@ async def search_pexels_images(query: str, per_page: int = 5, orientation: str =
         print("  [!] Cần PEXELS_API_KEY trong .env")
         return []
     
+    # Thêm từ khóa để loại bỏ người/xe cộ, chỉ lấy hình động vật
+    enhanced_query = f"{query} animal close up -people -human -person"
+    print(f"      [Pexels] Enhanced query: '{enhanced_query}'")
+    
     url = "https://api.pexels.com/v1/search"
     headers = {"Authorization": PEXELS_API_KEY}
-    params = {"query": query, "per_page": per_page, "orientation": orientation}
+    params = {"query": enhanced_query, "per_page": per_page * 2, "orientation": orientation}  # Lấy nhiều hơn để lọc
     
     # Xác định tỷ lệ aspect ratio cần lọc
     if orientation == "portrait":
@@ -860,60 +867,242 @@ def create_image_video(image_path: str, output_path: str, duration: float = 5.0,
         return None
 
 
-async def generate_animal_narration(animal_name: str, output_path: str) -> tuple[str | None, float]:
+# Thư mục chứa file tiếng kêu động vật local
+SOUNDS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sounds")
+
+
+def get_local_animal_sound(animal_name: str) -> str | None:
     """
-    Tạo audio đọc tên động vật.
-    Trả về: (đường dẫn file, duration)
+    Tìm file tiếng kêu động vật trong thư mục sounds/
+    
+    Quy tắc đặt tên file:
+    - Tên file = tên động vật tiếng Anh (viết thường, thay space bằng _)
+    - Định dạng: .mp3, .wav, .ogg, .m4a
+    - Ví dụ: lion.mp3, polar_bear.mp3, sea_turtle.wav
+    
+    Returns: Đường dẫn file nếu tìm thấy, None nếu không có
     """
-    import edge_tts
-    import hashlib
+    if not os.path.exists(SOUNDS_DIR):
+        return None
     
-    # Text đọc rõ ràng, có ngắt nghỉ
-    text = f"Đây là ... {animal_name}."
+    # Chuẩn hóa tên: lowercase, thay space bằng _
+    name_lower = animal_name.lower().strip().replace(" ", "_")
     
-    # Tính hash của text để verify
-    text_hash = hashlib.md5(text.encode('utf-8')).hexdigest()[:8]
+    # Các định dạng audio hỗ trợ
+    extensions = [".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac"]
     
-    print(f"      ┌─────────────────────────────────────────")
-    print(f"      │ [TTS] Animal: '{animal_name}'")
-    print(f"      │ [TTS] Text: '{text}'")
-    print(f"      │ [TTS] Text hash: {text_hash}")
-    print(f"      │ [TTS] Output: {output_path}")
-    print(f"      └─────────────────────────────────────────")
+    # 1. Tìm chính xác
+    for ext in extensions:
+        file_path = os.path.join(SOUNDS_DIR, f"{name_lower}{ext}")
+        if os.path.exists(file_path):
+            print(f"      [LOCAL_SOUND] ✓ Found: {file_path}")
+            return file_path
+    
+    # 2. Tìm file bắt đầu bằng tên động vật (ví dụ: lion_roar.mp3)
+    try:
+        for filename in os.listdir(SOUNDS_DIR):
+            if filename.lower().startswith(name_lower):
+                file_path = os.path.join(SOUNDS_DIR, filename)
+                if os.path.isfile(file_path):
+                    print(f"      [LOCAL_SOUND] ✓ Found (partial): {file_path}")
+                    return file_path
+    except:
+        pass
+    
+    # 3. Tìm qua ANIMAL_DATABASE để lấy tên tiếng Anh
+    for key, (search_term, vn_name) in ANIMAL_DATABASE.items():
+        if vn_name.lower() == animal_name.lower():
+            key_normalized = key.replace(" ", "_")
+            for ext in extensions:
+                file_path = os.path.join(SOUNDS_DIR, f"{key_normalized}{ext}")
+                if os.path.exists(file_path):
+                    print(f"      [LOCAL_SOUND] ✓ Found (via DB): {file_path}")
+                    return file_path
+    
+    return None
+
+
+async def fetch_animal_sound(search_term: str, output_path: str, max_duration: float = 3.0, animal_key: str = "") -> str | None:
+    """
+    Lấy tiếng kêu động vật TỪ FILE LOCAL.
+    
+    Chỉ dùng file trong thư mục sounds/ - KHÔNG tải từ internet.
+    Nếu không có file → trả về None (video chỉ có đọc tên).
+    
+    Args:
+        search_term: Từ khóa search (VD: "lion wildlife")
+        output_path: Đường dẫn output
+        max_duration: Thời lượng tối đa (giây)
+        animal_key: Tên động vật gốc (VD: "giant sloth") - ưu tiên dùng để tìm file
+    """
+    # Ưu tiên dùng animal_key nếu có, nếu không thì lấy từ search_term
+    if animal_key:
+        base_animal = animal_key.strip()
+    else:
+        # Fallback: lấy từ search_term, nhưng cố gắng lấy nhiều từ hơn
+        # "giant sloth prehistoric" -> lấy "giant sloth" (bỏ các từ như wildlife, prehistoric, etc.)
+        skip_words = {"wildlife", "animal", "nature", "africa", "ocean", "forest", "jungle", 
+                      "underwater", "swimming", "flying", "running", "cute", "pet", "farm",
+                      "prehistoric", "colorful", "tropical", "arctic", "rare", "deep", "sea"}
+        words = [w for w in search_term.lower().split() if w not in skip_words]
+        base_animal = " ".join(words[:2]) if len(words) >= 2 else (words[0] if words else search_term.split()[0])
+    
+    # Log rõ tên file đang tìm
+    expected_filename = base_animal.lower().replace(" ", "_")
+    print(f"      [SOUND] Looking for animal: '{base_animal}'")
+    print(f"      [SOUND] Expected filename: '{expected_filename}.mp3' (or .wav, .ogg, .m4a)")
+    
+    # Tìm file local
+    local_sound = get_local_animal_sound(base_animal)
+    if not local_sound:
+        print(f"      [SOUND] ⏭ Không có file local cho '{base_animal}' - bỏ qua tiếng kêu")
+        return None
+    
+    print(f"      [SOUND] ✓ Dùng file LOCAL: {local_sound}")
     
     try:
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
-        # Xóa file cũ nếu tồn tại để tránh dùng lại
+        # Kiểm tra duration của file gốc
+        original_duration = get_video_duration(local_sound)
+        print(f"      [SOUND] File gốc: {original_duration:.1f}s, Max: {max_duration:.1f}s")
+        
+        # Nếu file dài hơn max_duration, cắt và thêm fade out
+        if original_duration > max_duration:
+            fade_duration = min(0.3, max_duration * 0.1)
+            fade_start = max_duration - fade_duration
+            audio_filter = f"volume=1.2,afade=t=out:st={fade_start}:d={fade_duration}"
+            print(f"      [SOUND] Cắt từ {original_duration:.1f}s -> {max_duration:.1f}s")
+        else:
+            audio_filter = "volume=1.2"
+        
+        # Dùng ffmpeg để xử lý
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", local_sound,
+            "-t", str(max_duration),
+            "-af", audio_filter,
+            "-ar", "44100",
+            "-ac", "1",
+            "-c:a", "libmp3lame",
+            "-b:a", "128k",
+            output_path,
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 500:
+            final_duration = get_video_duration(output_path)
+            print(f"      [SOUND] ✓ OK: {final_duration:.1f}s")
+            return output_path
+        
+        return None
+    except Exception as e:
+        print(f"      [SOUND] ! Error: {e}")
+        return None
+
+
+async def generate_animal_narration(animal_name: str, output_path: str, search_term: str = "", work_dir: str = "", animal_key: str = "") -> tuple[str | None, float]:
+    """
+    Tạo audio: đọc tên động vật + tiếng kêu (nếu có file local).
+    Trả về: (đường dẫn file, duration)
+    
+    Args:
+        animal_name: Tên hiển thị tiếng Việt (để đọc TTS)
+        output_path: Đường dẫn output
+        search_term: Từ khóa search Pexels
+        work_dir: Thư mục làm việc
+        animal_key: Tên động vật gốc tiếng Anh (để tìm file âm thanh)
+    """
+    import edge_tts
+    import hashlib
+
+    text = f"Đây là ... {animal_name}."
+
+    print(f"      [TTS] Animal: '{animal_name}', Text: '{text}'")
+
+    try:
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
         if os.path.exists(output_path):
             os.remove(output_path)
-            print(f"      [TTS] Removed old file")
-        
-        # Tạo Edge TTS instance MỚI cho mỗi lần gọi
+
+        # Buoc 1: Tao narration (doc ten)
+        narration_path = output_path + ".narr.mp3"
         communicate = edge_tts.Communicate(
             text=text,
             voice=Config.TTS_VOICE,
-            rate="-20%",  # Chậm hơn 20% để rõ ràng
+            rate="-20%",
         )
+        await communicate.save(narration_path)
+
+        if not os.path.exists(narration_path) or os.path.getsize(narration_path) < 100:
+            print(f"      [TTS] Failed to create narration")
+            return None, 0
+
+        # Buoc 2: Tim tieng keu thuc tu local/Pexels
+        sound_path = None
+        narration_duration = get_video_duration(narration_path)
         
-        # AWAIT và đợi hoàn thành
-        await communicate.save(output_path)
+        # Tính thời gian còn lại cho tiếng kêu
+        # Video clip thường ~5-8 giây, narration ~2-3 giây
+        # Dành ~0.5s silence + còn lại cho tiếng kêu
+        silence_duration = 0.5
+        max_sound_duration = max(1.0, 5.0 - narration_duration - silence_duration)  # Tối thiểu 1 giây
         
+        print(f"      [SOUND] Narration: {narration_duration:.1f}s, Max sound: {max_sound_duration:.1f}s")
+        
+        if search_term and work_dir:
+            safe = "".join(c for c in animal_name if c.isalnum() or c in " _-").strip().replace(" ", "_")
+            sound_path = os.path.join(work_dir, f"sound_{safe}.mp3")
+            print(f"      [SOUND] Tim tieng keu cho: {search_term} (animal_key: '{animal_key}')")
+            sound_path = await fetch_animal_sound(search_term, sound_path, max_duration=max_sound_duration, animal_key=animal_key)
+            if sound_path:
+                print(f"      [SOUND] Da tai tieng keu: {sound_path}")
+
+        # Buoc 3: Ghep narration + silence + tieng keu
+        if sound_path and os.path.exists(sound_path):
+            # Ghep: [narration] + [0.5s im lang] + [tieng keu]
+            silence_path = output_path + ".silence.wav"
+            cmd_silence = [
+                "ffmpeg", "-y",
+                "-f", "lavfi", "-t", "0.5", "-i", "anullsrc=r=44100:cl=mono",
+                silence_path,
+            ]
+            subprocess.run(cmd_silence, capture_output=True, text=True)
+
+            concat_list = output_path + ".list.txt"
+            with open(concat_list, "w") as f:
+                f.write(f"file '{os.path.abspath(narration_path)}'\n")
+                f.write(f"file '{os.path.abspath(silence_path)}'\n")
+                f.write(f"file '{os.path.abspath(sound_path)}'\n")
+
+            cmd_concat = [
+                "ffmpeg", "-y",
+                "-f", "concat", "-safe", "0",
+                "-i", concat_list,
+                "-c:a", "libmp3lame", "-b:a", "128k",
+                output_path,
+            ]
+            subprocess.run(cmd_concat, capture_output=True, text=True)
+
+            # Cleanup
+            for tmp in [narration_path, silence_path, concat_list, sound_path]:
+                if os.path.exists(tmp):
+                    os.remove(tmp)
+
+            print(f"      [TTS] Doc ten + tieng keu that!")
+        else:
+            # Khong co tieng keu -> chi doc ten
+            os.rename(narration_path, output_path)
+            print(f"      [TTS] Chi doc ten (khong tim duoc tieng keu)")
+
         if os.path.exists(output_path) and os.path.getsize(output_path) > 100:
             duration = get_video_duration(output_path)
             size_kb = os.path.getsize(output_path) / 1024
-            
-            # Tính MD5 của file audio để verify
-            with open(output_path, 'rb') as f:
-                file_hash = hashlib.md5(f.read()).hexdigest()[:8]
-            
-            print(f"      [TTS] ✓ Created: {output_path}")
-            print(f"      [TTS] ✓ Size: {size_kb:.1f} KB, Duration: {duration:.1f}s")
-            print(f"      [TTS] ✓ File hash: {file_hash}")
-            
+            print(f"      [TTS] OK: {size_kb:.1f}KB, {duration:.1f}s")
             return output_path, duration
         else:
-            print(f"      [TTS] ✗ Failed to create audio file")
+            print(f"      [TTS] Failed")
             return None, 0
     except Exception as e:
         print(f"  [!] TTS error: {e}")
@@ -949,57 +1138,80 @@ def get_audio_duration(audio_path: str) -> float:
 
 
 def merge_audio_to_video(video_path: str, audio_path: str, output_path: str, animal_name: str = "") -> str | None:
-    """Ghép audio vào video. XÓA audio gốc của video, chỉ dùng audio mới."""
+    """Ghep narration (doc ten) vao video. Neu video goc co tieng keu that thi mix them."""
     import hashlib
-    
+
     try:
         video_duration = get_video_duration(video_path)
         audio_duration = get_video_duration(audio_path)
-        
-        # Tính hash để verify
+
         with open(audio_path, 'rb') as f:
             audio_hash = hashlib.md5(f.read()).hexdigest()[:8]
-        
-        print(f"      ┌─────────────────────────────────────────")
-        print(f"      │ [MERGE] Animal: {animal_name}")
-        print(f"      │ [MERGE] Video: {video_path}")
-        print(f"      │ [MERGE] Audio: {audio_path}")
-        print(f"      │ [MERGE] Audio hash: {audio_hash}")
-        print(f"      │ [MERGE] Video dur: {video_duration:.1f}s, Audio dur: {audio_duration:.1f}s")
-        print(f"      └─────────────────────────────────────────")
-        
-        # QUAN TRỌNG: 
-        # -an: Xóa audio gốc của video
-        # -map 0:v:0: Lấy video stream từ input 0
-        # -map 1:a:0: Lấy audio stream từ input 1 (file audio mới)
-        cmd = [
-            "ffmpeg", "-y",
-            "-i", video_path,
-            "-i", audio_path,
-            "-c:v", "libx264",
-            "-preset", "fast", 
-            "-crf", "23",
-            "-c:a", "aac",
-            "-b:a", "128k",
-            "-map", "0:v:0",      # Chỉ lấy VIDEO từ file video
-            "-map", "1:a:0",      # Chỉ lấy AUDIO từ file audio mới
-            "-t", str(video_duration),
-            "-movflags", "+faststart",
-            output_path,
+
+        print(f"      [MERGE] Animal: {animal_name}")
+        print(f"      [MERGE] Video dur: {video_duration:.1f}s, Audio dur: {audio_duration:.1f}s, hash: {audio_hash}")
+
+        # Kiem tra video goc co tieng keu dong vat khong
+        mix_animal_sound = False
+        probe_cmd = [
+            "ffprobe", "-v", "quiet", "-print_format", "json",
+            "-show_streams", "-select_streams", "a", video_path,
         ]
-        
-        print(f"      [MERGE] Running ffmpeg...")
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        if result.returncode != 0:
-            print(f"      [!] FFmpeg merge error: {result.stderr[:300]}")
-            return None
-        
+        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+        try:
+            probe_data = json.loads(probe_result.stdout)
+            if len(probe_data.get("streams", [])) > 0:
+                vol_cmd = ["ffmpeg", "-i", video_path, "-af", "volumedetect", "-f", "null", "-"]
+                vol_result = subprocess.run(vol_cmd, capture_output=True, text=True)
+                for line in vol_result.stderr.split("\n"):
+                    if "mean_volume" in line:
+                        try:
+                            mean_vol = float(line.split("mean_volume:")[1].split("dB")[0].strip())
+                            mix_animal_sound = mean_vol > -35.0
+                            print(f"      [MERGE] Audio goc: {mean_vol:.1f}dB -> {'MIX tieng keu' if mix_animal_sound else 'bo qua'}")
+                        except:
+                            pass
+        except:
+            pass
+
+        if mix_animal_sound:
+            # Nang cao: MIX narration + tieng keu goc
+            print(f"      [MERGE] MIX: narration + tieng keu dong vat")
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", video_path, "-i", audio_path,
+                "-filter_complex",
+                "[0:a]volume=0.4[original];[1:a]volume=1.2[narration];"
+                "[narration][original]amix=inputs=2:duration=longest:dropout_transition=1[aout]",
+                "-map", "0:v:0", "-map", "[aout]",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-c:a", "aac", "-b:a", "128k",
+                "-t", str(video_duration), "-movflags", "+faststart",
+                output_path,
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                print(f"      [MERGE] Mix loi, fallback narration only")
+                mix_animal_sound = False
+
+        if not mix_animal_sound:
+            # Mac dinh: chi doc ten (GIONG NHU TRUOC)
+            print(f"      [MERGE] Narration only (doc ten)")
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", video_path, "-i", audio_path,
+                "-map", "0:v:0", "-map", "1:a:0",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-c:a", "aac", "-b:a", "128k",
+                "-t", str(video_duration), "-movflags", "+faststart",
+                output_path,
+            ]
+            subprocess.run(cmd, capture_output=True, text=True)
+
         if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
             size_kb = os.path.getsize(output_path) / 1024
             final_duration = get_video_duration(output_path)
-            print(f"      [MERGE] ✓ Output: {output_path}")
-            print(f"      [MERGE] ✓ Final: {size_kb:.1f} KB, {final_duration:.1f}s")
+            print(f"      [MERGE] OK: {size_kb:.1f}KB, {final_duration:.1f}s")
             return output_path
         return None
     except Exception as e:
@@ -1142,7 +1354,9 @@ async def create_animal_clip(
     # ========== BƯỚC 1: Tạo audio TRƯỚC (đọc tên tiếng Việt) ==========
     print(f"      [AUDIO] Generating narration for: {display_name}")
     audio_path = os.path.join(clip_dir, f"narration_{safe_name}.mp3")
-    audio_result, audio_duration = await generate_animal_narration(display_name, audio_path)
+    audio_result, audio_duration = await generate_animal_narration(
+        display_name, audio_path, search_term=search_term, work_dir=clip_dir, animal_key=animal_name
+    )
     
     if audio_result:
         print(f"      [AUDIO] Created: {audio_path}")
@@ -1258,140 +1472,126 @@ async def create_animal_clip(
     return result
 
 
-# ============ DANH SÁCH ĐỘNG VẬT THEO CHỦ ĐỀ ============
-# Chỉ lấy những động vật có trong ANIMAL_DATABASE (tiếng Anh)
-
-ANIMAL_CATEGORIES = {
-    "african": {
-        "title": "Động vật hoang dã châu Phi",
-        "animals": ["lion", "elephant", "giraffe", "zebra", "rhino", "hippo", "leopard", "cheetah", "hyena", "buffalo", "antelope"]
-    },
-    "ocean": {
-        "title": "Khám phá đại dương",
-        "animals": ["dolphin", "whale", "shark", "sea turtle", "octopus", "jellyfish", "seahorse", "clownfish", "manta ray", "seal", "orca"]
-    },
-    "birds": {
-        "title": "Thế giới loài chim",
-        "animals": ["eagle", "owl", "penguin", "flamingo", "peacock", "parrot", "toucan", "hummingbird", "swan", "pelican", "hawk"]
-    },
-    "pets": {
-        "title": "Thú cưng đáng yêu",
-        "animals": ["cat", "dog", "rabbit", "hamster", "goldfish", "parrot", "kitten", "puppy", "bunny", "guinea pig"]
-    },
-    "farm": {
-        "title": "Động vật trang trại",
-        "animals": ["cow", "pig", "horse", "sheep", "goat", "chicken", "duck", "donkey", "llama", "alpaca"]
-    },
-    "forest": {
-        "title": "Động vật rừng",
-        "animals": ["bear", "wolf", "fox", "deer", "owl", "squirrel", "raccoon", "badger", "hedgehog", "rabbit"]
-    },
-    "jungle": {
-        "title": "Rừng nhiệt đới",
-        "animals": ["tiger", "monkey", "gorilla", "orangutan", "parrot", "toucan", "snake", "chameleon", "sloth", "jaguar"]
-    },
-    "arctic": {
-        "title": "Vùng Bắc Cực",
-        "animals": ["polar bear", "penguin", "seal", "walrus", "arctic fox", "reindeer", "orca", "whale"]
-    },
-    "australia": {
-        "title": "Động vật nước Úc",
-        "animals": ["kangaroo", "koala", "platypus", "wombat", "emu", "crocodile", "tasmanian devil"]
-    },
-    "reptiles": {
-        "title": "Thế giới bò sát",
-        "animals": ["crocodile", "snake", "lizard", "chameleon", "turtle", "tortoise", "iguana", "gecko", "komodo dragon"]
-    },
-    "primates": {
-        "title": "Họ hàng linh trưởng",
-        "animals": ["monkey", "gorilla", "chimpanzee", "orangutan", "gibbon", "baboon", "lemur"]
-    },
-    "insects": {
-        "title": "Thế giới côn trùng",
-        "animals": ["butterfly", "bee", "dragonfly", "ladybug", "ant", "spider", "grasshopper", "firefly", "praying mantis"]
-    },
-    "underwater": {
-        "title": "Dưới đáy đại dương",
-        "animals": ["shark", "octopus", "jellyfish", "seahorse", "starfish", "crab", "lobster", "coral", "clownfish", "manta ray"]
-    },
-    "predators": {
-        "title": "Những kẻ săn mồi",
-        "animals": ["lion", "tiger", "wolf", "eagle", "shark", "crocodile", "cheetah", "leopard", "hawk", "orca"]
-    },
-    "cute": {
-        "title": "Động vật dễ thương",
-        "animals": ["panda", "koala", "otter", "hedgehog", "rabbit", "kitten", "puppy", "sloth", "penguin", "red fox"]
-    },
-}
-
-
 def generate_animal_scripts(user_prompt: str, num_videos: int = 1, animals_per_video: int = 10) -> list[dict]:
     """
-    Tạo danh sách động vật từ ANIMAL_DATABASE (không dùng Ollama).
-    Random theo chủ đề hoặc random tổng hợp.
+    Tạo danh sách động vật từ ANIMAL_DATABASE.
+    Random theo chủ đề hoặc random từ toàn bộ database.
     
     Args:
         user_prompt: Chủ đề (có thể để trống)
         num_videos: Số video cần tạo
-        animals_per_video: Số động vật mỗi video (mặc định 50)
+        animals_per_video: Số động vật mỗi video
     """
     import random
     
     prompt_lower = user_prompt.lower()
+    
+    # Lấy TẤT CẢ động vật từ ANIMAL_DATABASE (chỉ lấy key tiếng Anh, bỏ key tiếng Việt)
+    all_animals_from_db = []
+    for key in ANIMAL_DATABASE.keys():
+        # Bỏ qua key tiếng Việt (có dấu hoặc là bản dịch)
+        # Kiểm tra nếu key có ký tự tiếng Việt
+        is_vietnamese = any(ord(c) > 127 for c in key)
+        if not is_vietnamese:
+            all_animals_from_db.append(key)
+    
+    print(f"  [ANIMAL] Total animals in DATABASE: {len(all_animals_from_db)}")
     
     # Tìm chủ đề phù hợp từ prompt
     matched_categories = []
     
     keyword_mapping = {
         "african": ["châu phi", "africa", "safari", "hoang dã"],
-        "ocean": ["biển", "ocean", "sea", "đại dương", "marine"],
+        "ocean": ["biển", "ocean", "sea", "đại dương", "marine", "underwater"],
         "birds": ["chim", "bird", "bay", "flying"],
         "pets": ["thú cưng", "pet", "nuôi", "nhà"],
         "farm": ["trang trại", "farm", "nông trại"],
         "forest": ["rừng", "forest", "woodland"],
-        "jungle": ["rừng nhiệt đới", "jungle", "tropical"],
-        "arctic": ["bắc cực", "arctic", "polar", "tuyết", "snow"],
+        "jungle": ["rừng nhiệt đới", "jungle", "tropical", "amazon"],
+        "arctic": ["bắc cực", "arctic", "polar", "tuyết", "snow", "antarctic", "nam cực"],
         "australia": ["úc", "australia", "kangaroo", "koala"],
-        "reptiles": ["bò sát", "reptile", "rắn", "snake"],
-        "primates": ["linh trưởng", "khỉ", "monkey", "ape"],
+        "reptiles": ["bò sát", "reptile", "rắn", "snake", "lizard"],
+        "primates": ["linh trưởng", "khỉ", "monkey", "ape", "gorilla"],
         "insects": ["côn trùng", "insect", "bọ", "bug"],
-        "underwater": ["dưới nước", "underwater", "lặn", "diving"],
         "predators": ["săn mồi", "predator", "hunter", "ăn thịt"],
         "cute": ["dễ thương", "cute", "đáng yêu", "adorable"],
+        "fish": ["cá", "fish", "aquarium"],
+        "dinosaur": ["khủng long", "dinosaur", "prehistoric", "tiền sử"],
+        "rare": ["quý hiếm", "rare", "endangered"],
+        "deep sea": ["biển sâu", "deep sea", "abyss"],
     }
     
     for cat_key, keywords in keyword_mapping.items():
         if any(kw in prompt_lower for kw in keywords):
             matched_categories.append(cat_key)
     
-    # Nếu không match hoặc prompt là "all" / "tất cả", lấy từ tất cả categories
-    if not matched_categories or "all" in prompt_lower or "tất cả" in prompt_lower:
-        matched_categories = list(ANIMAL_CATEGORIES.keys())
+    # Lọc động vật theo chủ đề (nếu có)
+    filtered_animals = []
     
-    print(f"  [ANIMAL] Matched categories: {matched_categories}")
+    if matched_categories and "all" not in prompt_lower and "tất cả" not in prompt_lower:
+        print(f"  [ANIMAL] Matched categories: {matched_categories}")
+        
+        # Mapping từ category -> keywords để lọc từ ANIMAL_DATABASE
+        category_keywords = {
+            "african": ["africa", "safari", "lion", "elephant", "giraffe", "zebra", "rhino", "hippo", "leopard", "cheetah", "hyena", "buffalo", "antelope", "wildebeest", "gazelle", "warthog"],
+            "ocean": ["ocean", "sea", "underwater", "marine", "dolphin", "whale", "shark", "turtle", "seal", "octopus", "jellyfish", "coral", "fish", "crab", "lobster", "shrimp", "squid", "orca", "manatee", "dugong", "seahorse", "starfish", "clownfish", "manta", "stingray", "walrus", "narwhal", "beluga"],
+            "birds": ["bird", "eagle", "owl", "hawk", "falcon", "parrot", "swan", "pelican", "crane", "heron", "stork", "vulture", "crow", "raven", "sparrow", "pigeon", "dove", "robin", "kingfisher", "woodpecker", "chicken", "rooster", "duck", "goose", "turkey", "flamingo", "peacock", "toucan", "hummingbird", "penguin", "emu", "albatross", "seagull", "magpie", "canary", "finch", "nightingale", "lark", "cockatoo", "budgerigar", "parakeet", "quetzal", "macaw"],
+            "pets": ["pet", "cat", "dog", "kitten", "puppy", "rabbit", "bunny", "hamster", "guinea pig", "goldfish", "parrot", "ferret"],
+            "farm": ["farm", "cow", "bull", "pig", "horse", "pony", "donkey", "sheep", "lamb", "goat", "llama", "alpaca", "chicken", "duck", "goose", "turkey"],
+            "forest": ["forest", "bear", "wolf", "fox", "deer", "moose", "elk", "squirrel", "raccoon", "badger", "hedgehog", "owl", "rabbit"],
+            "jungle": ["jungle", "tropical", "tiger", "jaguar", "monkey", "gorilla", "orangutan", "chimpanzee", "gibbon", "toucan", "parrot", "snake", "chameleon", "sloth", "anaconda", "piranha", "capuchin", "howler", "spider monkey"],
+            "arctic": ["arctic", "polar", "snow", "antarctic", "polar bear", "penguin", "seal", "walrus", "arctic fox", "reindeer", "narwhal", "beluga", "snowy owl", "arctic wolf", "arctic hare", "lemming"],
+            "australia": ["australia", "kangaroo", "koala", "platypus", "wombat", "emu", "tasmanian", "kiwi"],
+            "reptiles": ["reptile", "snake", "cobra", "python", "anaconda", "viper", "crocodile", "alligator", "lizard", "chameleon", "iguana", "komodo", "gecko", "tortoise", "turtle", "monitor", "skink"],
+            "primates": ["monkey", "ape", "gorilla", "chimpanzee", "orangutan", "gibbon", "baboon", "lemur", "macaque", "capuchin", "howler", "spider monkey"],
+            "insects": ["insect", "butterfly", "bee", "dragonfly", "ladybug", "beetle", "ant", "spider", "tarantula", "scorpion", "grasshopper", "cricket", "firefly", "moth", "caterpillar", "praying mantis", "wasp", "termite", "cockroach", "mosquito", "centipede", "millipede"],
+            "predators": ["predator", "lion", "tiger", "wolf", "eagle", "shark", "crocodile", "cheetah", "leopard", "hawk", "orca", "jaguar", "bear", "hyena"],
+            "cute": ["cute", "panda", "koala", "otter", "hedgehog", "rabbit", "kitten", "puppy", "sloth", "penguin", "red panda", "bunny", "hamster"],
+            "fish": ["fish", "salmon", "tuna", "eel", "pufferfish", "catfish", "tilapia", "anchovy", "sardine", "cod", "haddock", "halibut", "flounder", "barracuda", "marlin", "swordfish", "angelfish", "betta", "koi", "carp", "perch", "piranha", "arapaima", "goldfish", "clownfish"],
+            "dinosaur": ["dinosaur", "tyrannosaurus", "velociraptor", "triceratops", "stegosaurus", "brachiosaurus", "diplodocus", "spinosaurus", "ankylosaurus", "allosaurus", "pterodactyl", "archaeopteryx", "mammoth", "saber tooth", "megalodon"],
+            "rare": ["rare", "saola", "amur", "sumatran", "vaquita", "okapi", "aye aye", "pangolin", "red panda", "ethiopian", "kakapo"],
+            "deep sea": ["deep sea", "anglerfish", "gulper", "vampire squid", "blobfish", "lanternfish", "dragonfish", "fangtooth", "tripod fish", "barreleye", "giant isopod"],
+        }
+        
+        # Lọc động vật phù hợp với chủ đề
+        for animal in all_animals_from_db:
+            animal_lower = animal.lower()
+            search_term = ANIMAL_DATABASE[animal][0].lower()
+            
+            for cat in matched_categories:
+                if cat in category_keywords:
+                    for keyword in category_keywords[cat]:
+                        if keyword in animal_lower or keyword in search_term:
+                            if animal not in filtered_animals:
+                                filtered_animals.append(animal)
+                            break
+        
+        print(f"  [ANIMAL] Filtered by theme: {len(filtered_animals)} animals")
+    
+    # Nếu không đủ hoặc không có filter, dùng tất cả
+    if len(filtered_animals) < animals_per_video:
+        print(f"  [ANIMAL] Using ALL animals from database")
+        filtered_animals = all_animals_from_db.copy()
+    
+    # Shuffle để random
+    random.shuffle(filtered_animals)
+    
+    print(f"  [ANIMAL] Total available: {len(filtered_animals)} unique animals")
     print(f"  [ANIMAL] Target: {num_videos} video(s), {animals_per_video} animals each")
-    
-    # Thu thập TẤT CẢ động vật từ các categories phù hợp (không trùng lặp)
-    all_available_animals = set()
-    for cat_key in matched_categories:
-        all_available_animals.update(ANIMAL_CATEGORIES[cat_key]["animals"])
-    
-    # Nếu vẫn không đủ, lấy thêm từ tất cả categories
-    if len(all_available_animals) < animals_per_video:
-        for cat_key in ANIMAL_CATEGORIES:
-            all_available_animals.update(ANIMAL_CATEGORIES[cat_key]["animals"])
-    
-    all_available_animals = list(all_available_animals)
-    random.shuffle(all_available_animals)
-    
-    print(f"  [ANIMAL] Total available: {len(all_available_animals)} unique animals")
     
     videos = []
     used_animals = set()
     
     for i in range(num_videos):
         # Lấy động vật chưa dùng
-        available = [a for a in all_available_animals if a not in used_animals]
+        available = [a for a in filtered_animals if a not in used_animals]
+        
+        # Nếu hết động vật, reset
+        if len(available) < animals_per_video:
+            print(f"  [ANIMAL] Resetting used animals pool")
+            used_animals.clear()
+            available = filtered_animals.copy()
+            random.shuffle(available)
         
         # Số động vật cho video này
         num_animals = min(animals_per_video, len(available))
@@ -1421,6 +1621,7 @@ def generate_animal_scripts(user_prompt: str, num_videos: int = 1, animals_per_v
         
         print(f"  [ANIMAL] Video {i+1}: {title} -> {num_animals} animals")
         print(f"           First 5: {selected[:5]}")
-        print(f"           Last 5: {selected[-5:]}")
+        if len(selected) > 5:
+            print(f"           Last 5: {selected[-5:]}")
     
     return videos
