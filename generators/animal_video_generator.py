@@ -30,379 +30,270 @@ PEXELS_API_KEY = Config.PEXELS_API_KEY or os.getenv("PEXELS_API_KEY", "")
 
 ANIMAL_DATABASE = {
     # ===== ĐỘNG VẬT HOANG DÃ CHÂU PHI =====
-    "lion": ("lion wildlife africa", "sư tử"),
-    "tiger": ("tiger wildlife", "hổ"),
-    "elephant": ("elephant wildlife africa", "voi"),
-    "giraffe": ("giraffe wildlife africa", "hươu cao cổ"),
-    "zebra": ("zebra wildlife africa", "ngựa vằn"),
-    "rhinoceros": ("rhinoceros wildlife", "tê giác"),
-    "hippo": ("hippopotamus wildlife", "hà mã"),
-    "leopard": ("leopard wildlife", "báo"),
-    "cheetah": ("cheetah running wildlife", "báo săn"),
-    "jaguar": ("jaguar wildlife jungle", "báo đốm"),
-    "antelope": ("antelope wildlife", "linh dương"),
-    "buffalo": ("buffalo wildlife africa", "trâu rừng"),
-    "wildebeest": ("wildebeest migration africa", "linh dương đầu bò"),
+    "lion": ("lion wild safari", "sư tử"),
+    "tiger": ("tiger wild jungle", "hổ"),
+    "elephant": ("elephant wild safari", "voi"),
+    "giraffe": ("giraffe wild safari", "hươu cao cổ"),
+    "zebra": ("zebra wild safari", "ngựa vằn"),
+    "rhinoceros": ("rhinoceros wild safari", "tê giác"),
+    "hippo": ("hippopotamus wild river", "hà mã"),
+    "leopard": ("leopard wild safari", "báo"),
+    "cheetah": ("cheetah running wild", "báo săn"),
+    "jaguar": ("jaguar wild jungle", "báo đốm"),
+    "antelope": ("antelope wild safari", "linh dương"),
+    "buffalo": ("buffalo wild safari", "trâu rừng"),
+    "wildebeest": ("wildebeest migration safari", "linh dương đầu bò"),
     
     # ===== GẤU =====
-    "bear": ("bear wildlife forest", "gấu"),
-    "panda": ("panda bear bamboo", "gấu trúc"),
-    "polar bear": ("polar bear arctic snow", "gấu bắc cực"),
-    "brown bear": ("brown bear wildlife", "gấu nâu"),
-    "black bear": ("black bear wildlife", "gấu đen"),
-    "grizzly": ("grizzly bear wildlife", "gấu xám"),
-    
+    "bear": ("bear wild forest", "gấu"),
+    "panda": ("panda bear eating bamboo", "gấu trúc"),
+    "polar bear": ("polar bear arctic ice", "gấu bắc cực"),
+    "brown bear": ("brown bear wild river", "gấu nâu"),
+    "black bear": ("black bear wild forest", "gấu đen"),
+    "grizzly": ("grizzly bear wild river", "gấu xám"),
+
     # ===== CHÓ SÓI, CÁO =====
-    "wolf": ("wolf wildlife forest", "sói"),
-    "fox": ("fox wildlife forest", "cáo"),
-    "red fox": ("red fox wildlife", "cáo đỏ"),
+    "wolf": ("wolf wild forest pack", "sói"),
+    "fox": ("fox wild forest", "cáo"),
+    "red fox": ("red fox wild", "cáo đỏ"),
     "arctic fox": ("arctic fox snow white", "cáo bắc cực"),
-    "fennec fox": ("fennec fox desert", "cáo fennec"),
-    "coyote": ("coyote wildlife", "sói đồng cỏ"),
-    
+    "fennec fox": ("fennec fox desert ears", "cáo fennec"),
+    "coyote": ("coyote wild prairie", "sói đồng cỏ"),
+
     # ===== KHỈ, VƯỢN =====
-    "monkey": ("monkey wildlife tree", "khỉ"),
-    "chimpanzee": ("chimpanzee ape wildlife", "tinh tinh"),
-    "chimp": ("chimpanzee ape wildlife", "tinh tinh"),
-    "orangutan": ("orangutan ape borneo", "đười ươi"),
-    "gorilla": ("gorilla ape wildlife", "khỉ đột"),
-    "gibbon": ("gibbon ape swinging", "vượn"),
-    "baboon": ("baboon monkey africa", "khỉ đầu chó"),
-    "lemur": ("lemur madagascar", "vượn cáo"),
-    "macaque": ("macaque monkey", "khỉ mặt đỏ"),
+    "monkey": ("monkey wild tree jungle", "khỉ"),
+    "chimpanzee": ("chimpanzee wild jungle", "tinh tinh"),
+    "chimp": ("chimpanzee wild jungle", "tinh tinh"),
+    "orangutan": ("orangutan wild borneo jungle", "đười ươi"),
+    "gorilla": ("gorilla wild jungle", "khỉ đột"),
+    "gibbon": ("gibbon swinging tree jungle", "vượn"),
+    "baboon": ("baboon wild safari", "khỉ đầu chó"),
+    "lemur": ("lemur madagascar wild", "vượn cáo"),
+    "macaque": ("macaque monkey wild", "khỉ mặt đỏ"),
     
     # ===== ĐỘNG VẬT BIỂN =====
-    "dolphin": ("dolphin ocean swimming jumping", "cá heo"),
-    "whale": ("whale ocean underwater", "cá voi"),
-    "blue whale": ("blue whale ocean", "cá voi xanh"),
-    "humpback whale": ("humpback whale jumping", "cá voi lưng gù"),
-    "orca": ("orca killer whale ocean", "cá voi sát thủ"),
-    "shark": ("shark ocean underwater swimming", "cá mập"),
-    "great white shark": ("great white shark ocean", "cá mập trắng"),
-    "hammerhead shark": ("hammerhead shark ocean", "cá mập đầu búa"),
-    "sea turtle": ("sea turtle ocean underwater", "rùa biển"),
-    "turtle": ("turtle wildlife", "rùa"),
-    "seal": ("seal ocean swimming", "hải cẩu"),
-    "sea lion": ("sea lion ocean beach", "sư tử biển"),
-    "walrus": ("walrus arctic", "hải mã"),
-    "manatee": ("manatee sea cow underwater", "lợn biển"),
-    "dugong": ("dugong sea cow ocean", "bò biển"),
-    "seahorse": ("seahorse underwater colorful", "cá ngựa"),
-    "octopus": ("octopus underwater ocean", "bạch tuộc"),
+    "dolphin": ("dolphin jumping ocean", "cá heo"),
+    "whale": ("whale underwater ocean", "cá voi"),
+    "blue whale": ("blue whale underwater", "cá voi xanh"),
+    "humpback whale": ("humpback whale jumping ocean", "cá voi lưng gù"),
+    "orca": ("orca killer whale underwater", "cá voi sát thủ"),
+    "shark": ("shark underwater ocean", "cá mập"),
+    "great white shark": ("great white shark underwater", "cá mập trắng"),
+    "hammerhead shark": ("hammerhead shark underwater", "cá mập đầu búa"),
+    "sea turtle": ("sea turtle swimming underwater", "rùa biển"),
+    "turtle": ("turtle walking grass", "rùa"),
+    "seal": ("seal swimming underwater", "hải cẩu"),
+    "sea lion": ("sea lion swimming ocean", "sư tử biển"),
+    "walrus": ("walrus arctic ice", "hải mã"),
+    "manatee": ("manatee swimming underwater", "lợn biển"),
+    "dugong": ("dugong swimming underwater", "bò biển"),
+    "seahorse": ("seahorse underwater close up", "cá ngựa"),
+    "octopus": ("octopus underwater close up", "bạch tuộc"),
     "jellyfish": ("jellyfish underwater glowing", "sứa"),
-    "starfish": ("starfish ocean beach", "sao biển"),
-    "clownfish": ("clownfish nemo anemone", "cá hề"),
-    "manta ray": ("manta ray ocean underwater", "cá đuối"),
-    "stingray": ("stingray underwater", "cá đuối gai"),
-    "crab": ("crab ocean beach", "cua"),
-    "lobster": ("lobster ocean", "tôm hùm"),
-    "shrimp": ("shrimp underwater", "tôm"),
+    "starfish": ("starfish underwater ocean floor", "sao biển"),
+    "clownfish": ("clownfish anemone underwater", "cá hề"),
+    "manta ray": ("manta ray swimming underwater", "cá đuối"),
+    "stingray": ("stingray swimming underwater", "cá đuối gai"),
+    "crab": ("crab beach sand walking alive", "cua"),
+    "lobster": ("lobster reef underwater marine", "tôm hùm"),
+    "shrimp": ("shrimp marine life ocean reef", "tôm"),
     "coral": ("coral reef underwater colorful", "san hô"),
-    "penguin": ("penguin bird antarctic", "chim cánh cụt"),
+    "penguin": ("penguin colony antarctic", "chim cánh cụt"),
     
     # ===== CHIM =====
-    "eagle": ("eagle bird flying majestic", "đại bàng"),
-    "bald eagle": ("bald eagle america", "đại bàng đầu trắng"),
-    "hawk": ("hawk bird flying hunting", "chim ưng"),
-    "falcon": ("falcon bird flying fast", "chim cắt"),
-    "owl": ("owl bird wildlife night", "cú"),
+    "eagle": ("eagle bird raptor", "đại bàng"),
+    "bald eagle": ("bald eagle bird america", "đại bàng đầu trắng"),
+    "hawk": ("hawk bird raptor", "chim ưng"),
+    "falcon": ("peregrine falcon bird raptor", "chim cắt"),
+    "owl": ("owl bird nocturnal", "cú"),
     "flamingo": ("flamingo bird pink lake", "chim hồng hạc"),
-    "peacock": ("peacock bird colorful feathers", "chim công"),
+    "peacock": ("peacock bird feathers display", "chim công"),
     "parrot": ("parrot bird colorful tropical", "vẹt"),
-    "macaw": ("macaw parrot colorful", "vẹt đuôi dài"),
+    "macaw": ("macaw parrot colorful bird", "vẹt đuôi dài"),
     "toucan": ("toucan bird colorful beak", "chim toucan"),
-    "hummingbird": ("hummingbird bird tiny flower", "chim ruồi"),
-    "swan": ("swan bird lake elegant", "thiên nga"),
-    "pelican": ("pelican bird fishing", "bồ nông"),
-    "crane": ("crane bird flying", "hạc"),
+    "hummingbird": ("hummingbird bird flower nectar", "chim ruồi"),
+    "swan": ("swan bird lake", "thiên nga"),
+    "pelican": ("pelican bird", "bồ nông"),
+    "crane": ("crane bird wetland", "hạc"),
     "heron": ("heron bird water", "diệc"),
-    "stork": ("stork bird flying", "cò"),
-    "vulture": ("vulture bird", "kền kền"),
-    "crow": ("crow bird black intelligent", "quạ"),
+    "stork": ("stork bird nest", "cò"),
+    "vulture": ("vulture bird scavenger", "kền kền"),
+    "crow": ("crow bird black", "quạ"),
     "raven": ("raven bird black", "quạ đen"),
-    "sparrow": ("sparrow bird small", "chim sẻ"),
-    "pigeon": ("pigeon bird city", "bồ câu"),
-    "dove": ("dove bird white peace", "chim bồ câu trắng"),
-    "robin": ("robin bird red breast", "chim cổ đỏ"),
-    "kingfisher": ("kingfisher bird colorful fishing", "chim bói cá"),
+    "sparrow": ("sparrow bird small branch", "chim sẻ"),
+    "pigeon": ("pigeon bird", "bồ câu"),
+    "dove": ("dove bird white", "chim bồ câu trắng"),
+    "robin": ("robin bird red breast branch", "chim cổ đỏ"),
+    "kingfisher": ("kingfisher bird colorful", "chim bói cá"),
     "woodpecker": ("woodpecker bird tree", "chim gõ kiến"),
-    "chicken": ("chicken farm bird", "gà"),
-    "rooster": ("rooster chicken farm", "gà trống"),
-    "duck": ("duck bird water", "vịt"),
-    "goose": ("goose bird farm", "ngỗng"),
-    "turkey": ("turkey bird farm", "gà tây"),
-    
+    "chicken": ("chicken hen farm", "gà"),
+    "rooster": ("rooster crowing farm", "gà trống"),
+    "duck": ("duck bird pond swimming", "vịt"),
+    "goose": ("goose bird", "ngỗng"),
+    "turkey": ("turkey bird farm gobbler", "gà tây"),
+
     # ===== ĐỘNG VẬT ÚC =====
-    "kangaroo": ("kangaroo australia jumping", "chuột túi"),
-    "koala": ("koala australia eucalyptus cute", "gấu túi"),
-    "platypus": ("platypus australia swimming", "thú mỏ vịt"),
+    "kangaroo": ("kangaroo australia hopping", "chuột túi"),
+    "koala": ("koala tree eucalyptus", "gấu túi"),
+    "platypus": ("platypus swimming australia", "thú mỏ vịt"),
     "wombat": ("wombat australia", "gấu túi mũi trần"),
-    "tasmanian devil": ("tasmanian devil", "quỷ tasmania"),
+    "tasmanian devil": ("tasmanian devil animal", "quỷ tasmania"),
     "emu": ("emu bird australia", "đà điểu Úc"),
-    "kiwi bird": ("kiwi bird new zealand", "chim kiwi"),
+    "kiwi bird": ("kiwi bird flightless nocturnal", "chim kiwi"),
     
     # ===== BÒ SÁT =====
-    "snake": ("snake reptile wildlife", "rắn"),
-    "cobra": ("cobra snake hood", "rắn hổ mang"),
-    "python": ("python snake large", "trăn"),
+    "snake": ("snake reptile close up", "rắn"),
+    "cobra": ("cobra snake hood spread", "rắn hổ mang"),
+    "python": ("python snake coiled", "trăn"),
     "anaconda": ("anaconda snake water", "trăn anaconda"),
-    "viper": ("viper snake venomous", "rắn lục"),
-    "crocodile": ("crocodile reptile water", "cá sấu"),
-    "alligator": ("alligator reptile swamp", "cá sấu mỹ"),
-    "lizard": ("lizard reptile", "thằn lằn"),
-    "chameleon": ("chameleon colorful changing", "tắc kè hoa"),
-    "iguana": ("iguana lizard green", "kỳ nhông"),
-    "komodo dragon": ("komodo dragon lizard large", "rồng komodo"),
-    "gecko": ("gecko lizard wall", "tắc kè"),
-    "tortoise": ("tortoise turtle land", "rùa cạn"),
-    "frog": ("frog amphibian green", "ếch"),
-    "toad": ("toad amphibian", "cóc"),
-    "salamander": ("salamander amphibian", "kỳ giông"),
+    "viper": ("viper snake venomous close up", "rắn lục"),
+    "crocodile": ("crocodile river close up", "cá sấu"),
+    "alligator": ("alligator swamp close up", "cá sấu mỹ"),
+    "lizard": ("lizard reptile close up", "thằn lằn"),
+    "chameleon": ("chameleon reptile colorful close up", "tắc kè hoa"),
+    "iguana": ("iguana green reptile close up", "kỳ nhông"),
+    "komodo dragon": ("komodo dragon reptile close up", "rồng komodo"),
+    "gecko": ("gecko lizard close up", "tắc kè"),
+    "tortoise": ("tortoise land turtle close up", "rùa cạn"),
+    "frog": ("frog green close up", "ếch"),
+    "toad": ("toad amphibian close up", "cóc"),
+    "salamander": ("salamander amphibian close up", "kỳ giông"),
     
     # ===== ĐỘNG VẬT NHÀ =====
-    "cat": ("cat cute pet domestic", "mèo"),
-    "kitten": ("kitten cat cute baby", "mèo con"),
-    "dog": ("dog pet cute domestic", "chó"),
-    "puppy": ("puppy dog cute baby", "chó con"),
-    "rabbit": ("rabbit bunny cute pet", "thỏ"),
-    "bunny": ("bunny rabbit cute", "thỏ"),
-    "hamster": ("hamster pet cute small", "chuột hamster"),
-    "guinea pig": ("guinea pig pet cute", "chuột lang"),
-    "goldfish": ("goldfish aquarium orange", "cá vàng"),
-    "parrot pet": ("parrot pet bird talking", "vẹt"),
-    
+    "cat": ("cat close up face", "mèo"),
+    "kitten": ("kitten cute close up", "mèo con"),
+    "dog": ("dog close up face", "chó"),
+    "puppy": ("puppy cute close up", "chó con"),
+    "rabbit": ("rabbit close up grass", "thỏ"),
+    "bunny": ("bunny rabbit close up", "thỏ"),
+    "hamster": ("hamster close up cute", "chuột hamster"),
+    "guinea pig": ("guinea pig close up", "chuột lang"),
+    "goldfish": ("goldfish aquarium underwater", "cá vàng"),
+    "parrot pet": ("parrot bird close up colorful", "vẹt"),
+
     # ===== ĐỘNG VẬT TRANG TRẠI =====
-    "cow": ("cow farm animal grass", "bò"),
-    "bull": ("bull farm animal", "bò đực"),
-    "pig": ("pig farm animal pink", "lợn"),
-    "horse": ("horse farm animal running", "ngựa"),
-    "pony": ("pony horse small cute", "ngựa con"),
-    "donkey": ("donkey farm animal", "lừa"),
-    "sheep": ("sheep farm wool white", "cừu"),
-    "lamb": ("lamb sheep baby cute", "cừu con"),
-    "goat": ("goat farm animal", "dê"),
-    "llama": ("llama farm fluffy", "lạc đà không bướu"),
-    "alpaca": ("alpaca fluffy cute", "alpaca"),
+    "cow": ("cow grass field farm", "bò"),
+    "bull": ("bull close up farm", "bò đực"),
+    "pig": ("pig farm close up", "lợn"),
+    "horse": ("horse running field", "ngựa"),
+    "pony": ("pony close up field", "ngựa con"),
+    "donkey": ("donkey close up farm", "lừa"),
+    "sheep": ("sheep flock grass field", "cừu"),
+    "lamb": ("lamb close up grass", "cừu con"),
+    "goat": ("goat close up farm", "dê"),
+    "llama": ("llama close up field", "lạc đà không bướu"),
+    "alpaca": ("alpaca close up face", "alpaca"),
     
     # ===== CÔN TRÙNG =====
-    "butterfly": ("butterfly insect colorful flower", "bướm"),
-    "bee": ("bee insect flower honey", "ong"),
-    "dragonfly": ("dragonfly insect flying", "chuồn chuồn"),
-    "ladybug": ("ladybug insect red spots", "bọ rùa"),
-    "beetle": ("beetle insect", "bọ cánh cứng"),
-    "ant": ("ant insect small", "kiến"),
-    "spider": ("spider web", "nhện"),
-    "tarantula": ("tarantula spider large", "nhện tarantula"),
-    "scorpion": ("scorpion desert", "bọ cạp"),
-    "grasshopper": ("grasshopper insect green", "châu chấu"),
-    "cricket": ("cricket insect", "dế"),
-    "firefly": ("firefly insect glowing night", "đom đóm"),
-    "moth": ("moth insect night", "bướm đêm"),
-    "caterpillar": ("caterpillar insect", "sâu bướm"),
-    "praying mantis": ("praying mantis insect", "bọ ngựa"),
+    "butterfly": ("butterfly flower close up macro", "bướm"),
+    "bee": ("bee flower close up macro", "ong"),
+    "dragonfly": ("dragonfly close up macro", "chuồn chuồn"),
+    "ladybug": ("ladybug close up macro leaf", "bọ rùa"),
+    "beetle": ("beetle close up macro", "bọ cánh cứng"),
+    "ant": ("ant close up macro", "kiến"),
+    "spider": ("spider web close up macro", "nhện"),
+    "tarantula": ("tarantula spider close up", "nhện tarantula"),
+    "scorpion": ("scorpion close up desert", "bọ cạp"),
+    "grasshopper": ("grasshopper close up macro green", "châu chấu"),
+    "cricket": ("cricket insect close up macro", "dế"),
+    "firefly": ("firefly glowing night close up", "đom đóm"),
+    "moth": ("moth close up macro", "bướm đêm"),
+    "caterpillar": ("caterpillar close up macro leaf", "sâu bướm"),
+    "praying mantis": ("praying mantis close up macro", "bọ ngựa"),
 
 
-    # ===== MÈO HOANG =====
-    "lynx": ("lynx wild cat forest", "linh miêu"),
-    "ocelot": ("ocelot wild cat jungle", "mèo rừng"),
-    "serval": ("serval wild cat africa", "mèo"),
-    "cougar": ("cougar mountain lion", "báo sư tử"),
-    "mountain lion": ("mountain lion wildlife", "sư tử núi"),
-    "snow leopard": ("snow leopard mountain", "báo tuyết"),
+    # ===== MÈO HOANG (giữ loài phổ biến) =====
+    "lynx": ("lynx wild cat forest close up", "linh miêu"),
+    "snow leopard": ("snow leopard mountain close up", "báo tuyết"),
+    "cougar": ("cougar mountain lion close up", "báo sư tử"),
 
     # ĐỘNG VẬT HOANG DÃ
-    "warthog": ("warthog africa wild pig", "lợn bướu"),
-    "gazelle": ("gazelle wildlife africa", "linh dương"),
-    "ibex": ("ibex mountain goat", "dê núi"),
-    "chamois": ("chamois mountain goat", "sơn dương"),
-    "capybara": ("capybara largest rodent", "chuột lang nước"),
-    "chinchilla": ("chinchilla fluffy rodent", "chuột chinchilla"),
-    "marmot": ("marmot mountain rodent", "chuột marmot"),
-    "groundhog": ("groundhog burrowing rodent", "chuột chũi đất"),
-    "jerboa": ("jerboa desert rodent jumping", "chuột nhảy sa mạc"),
-    "vole": ("vole small rodent", "chuột vole"),
-    "lemming": ("lemming arctic rodent", "chuột lemming"),
+    "capybara": ("capybara close up", "chuột lang nước"),
 
-    # CÁ
-    "salmon": ("salmon fish river", "cá hồi"),
-    "tuna": ("tuna fish ocean", "cá ngừ"),
-    "eel": ("eel fish long", "cá chình"),
-    "pufferfish": ("pufferfish ocean blowfish", "cá nóc"),
-    "catfish": ("catfish river whiskers", "cá da trơn"),
-    "tilapia": ("tilapia freshwater fish", "cá rô phi"),
-    "anchovy": ("anchovy small fish", "cá cơm"),
-    "sardine": ("sardine small fish", "cá mòi"),
-    "cod": ("cod fish ocean", "cá tuyết"),
-    "haddock": ("haddock fish ocean", "cá haddock"),
-    "halibut": ("halibut flatfish ocean", "cá bơn"),
-    "flounder": ("flounder flatfish", "cá bơn"),
-    "barracuda": ("barracuda predator fish", "cá nhồng"),
-    "marlin": ("marlin big game fish", "cá cờ"),
-    "swordfish": ("swordfish ocean", "cá kiếm"),
-    "angelfish": ("angelfish aquarium colorful", "cá thần tiên"),
-    "betta fish": ("betta fish siamese fighting fish", "cá betta"),
-    "koi": ("koi fish pond colorful", "cá koi"),
-    "carp": ("carp freshwater fish", "cá chép"),
-    "perch": ("perch freshwater fish", "cá rô"),
+    # CÁ - chỉ giữ loài phổ biến, dễ tìm đúng
+    "salmon": ("salmon fish jumping river", "cá hồi"),
+    "tuna": ("tuna fish swimming underwater ocean", "cá ngừ"),
+    "eel": ("moray eel underwater reef", "cá chình"),
+    "pufferfish": ("pufferfish underwater close up", "cá nóc"),
+    "angelfish": ("angelfish tropical underwater aquarium", "cá thần tiên"),
+    "betta fish": ("betta fish siamese fighting aquarium", "cá betta"),
+    "koi": ("koi fish pond swimming colorful", "cá koi"),
 
-    # CHIM
-    "albatross": ("albatross seabird flying ocean", "chim hải âu lớn"),
-    "seagull": ("seagull bird beach", "chim hải âu"),
-    "magpie": ("magpie bird black white", "chim ác là"),
-    "canary": ("canary yellow singing bird", "chim hoàng yến"),
-    "finch": ("finch small bird", "chim sẻ finch"),
-    "nightingale": ("nightingale singing bird", "chim sơn ca"),
-    "lark": ("lark bird singing", "chim chiền chiện"),
-    "cockatoo": ("cockatoo parrot white", "vẹt mào"),
-    "budgerigar": ("budgerigar parakeet", "vẹt yến phụng"),
-    "parakeet": ("parakeet small parrot", "vẹt nhỏ"),
-    "quetzal": ("quetzal colorful bird", "chim quetzal"),
+    # CHIM (giữ loài phổ biến)
+    "seagull": ("seagull bird beach flying", "chim hải âu"),
+    "cockatoo": ("cockatoo parrot white bird", "vẹt mào"),
 
-    # BÒ SÁT
-    "monitor lizard": ("monitor lizard reptile", "kỳ đà"),
-    "frilled lizard": ("frilled lizard australia", "thằn lằn cổ bạnh"),
-    "gila monster": ("gila monster venomous lizard", "thằn lằn gila"),
-    "skink": ("skink lizard", "thằn lằn bóng"),
-    "slow worm": ("slow worm legless lizard", "thằn lằn không chân"),
-    
-    #LƯỠNG CƯ
-    "axolotl": ("axolotl salamander cute", "kỳ giông mexico"),
-    "newt": ("newt amphibian", "sa giông"),
-    "tree frog": ("tree frog green", "ếch cây"),
-    "bullfrog": ("bullfrog large frog", "ếch bò"),
+    # BÒ SÁT (giữ loài phổ biến)
+    "monitor lizard": ("monitor lizard reptile close up", "kỳ đà"),
+    "chameleon": ("chameleon reptile colorful close up", "tắc kè hoa"),
 
-    #CÔN TRÙNG
-    "wasp": ("wasp insect flying", "ong bắp cày"),
-    "termite": ("termite insect colony", "mối"),
-    "cockroach": ("cockroach insect", "gián"),
-    "mosquito": ("mosquito insect flying", "muỗi"),
-    "centipede": ("centipede many legs", "rết"),
-    "millipede": ("millipede many legs", "cuốn chiếu"),
-    "stick insect": ("stick insect camouflage", "bọ que"),
-    "leaf insect": ("leaf insect camouflage", "bọ lá"),
+    #LƯỠNG CƯ (giữ loài phổ biến)
+    "axolotl": ("axolotl pink aquarium", "kỳ giông mexico"),
+    "tree frog": ("tree frog green close up", "ếch cây"),
 
-    #ĐỘNG VẬT BIỂN
-    "squid": ("squid ocean underwater", "mực"),
-    "cuttlefish": ("cuttlefish ocean camouflage", "mực nang"),
-    "nautilus": ("nautilus shell ocean", "ốc anh vũ"),
-    "sea urchin": ("sea urchin ocean spiny", "nhím biển"),
-    "barnacle": ("barnacle shell ocean rock", "hà biển"),
-    "krill": ("krill small ocean crustacean", "nhuyễn thể krill"),
+    #CÔN TRÙNG (giữ loài phổ biến, bỏ loài khó tìm)
+    "wasp": ("wasp insect close up macro", "ong bắp cày"),
+    "cockroach": ("cockroach insect close up", "gián"),
+    "centipede": ("centipede close up macro", "rết"),
 
-    # Khủng long
-    "dinosaur": ("dinosaur prehistoric", "khủng long"),
-    "tyrannosaurus rex": ("tyrannosaurus rex dinosaur", "khủng long bạo chúa"),
-    "velociraptor": ("velociraptor dinosaur", "khủng long săn mồi"),
-    "triceratops": ("triceratops dinosaur horns", "khủng long ba sừng"),
-    "stegosaurus": ("stegosaurus dinosaur plates", "khủng long gai lưng"),
-    "brachiosaurus": ("brachiosaurus dinosaur long neck", "khủng long cổ dài"),
-    "diplodocus": ("diplodocus dinosaur long tail", "khủng long đuôi roi"),
-    "spinosaurus": ("spinosaurus dinosaur sail", "khủng long gai buồm"),
-    "ankylosaurus": ("ankylosaurus dinosaur armored", "khủng long bọc giáp"),
-    "allosaurus": ("allosaurus dinosaur predator", "khủng long săn mồi"),
-    "pterodactyl": ("pterodactyl flying reptile", "thằn lằn bay"),
-    "archaeopteryx": ("archaeopteryx feathered dinosaur", "khủng long có lông"),
+    #ĐỘNG VẬT BIỂN - underwater (giữ loài phổ biến)
+    "squid": ("squid swimming underwater ocean", "mực"),
+    "sea urchin": ("sea urchin underwater close up", "nhím biển"),
 
-    #Động vật tiền sử
-    "mammoth": ("woolly mammoth ice age", "voi ma mút"),
-    "saber tooth tiger": ("saber tooth tiger prehistoric", "hổ răng kiếm"),
-    "giant sloth": ("giant sloth prehistoric", "lười khổng lồ"),
-    "dire wolf": ("dire wolf prehistoric", "sói khổng lồ"),
-    "megatherium": ("megatherium giant sloth", "lười khổng lồ"),
-    "glyptodon": ("glyptodon armored mammal", "thú bọc giáp"),
-    "deinotherium": ("deinotherium prehistoric elephant", "voi cổ đại"),
-    "titanoboa": ("titanoboa giant snake", "rắn khổng lồ"),
-    "megalodon": ("megalodon giant shark", "cá mập khổng lồ"),
-    "argentavis": ("argentavis giant bird", "chim khổng lồ"),
+    #Động vật Bắc Cực (giữ loài phổ biến)
+    "arctic wolf": ("arctic wolf snow wild", "sói bắc cực"),
+    "snowy owl": ("snowy owl bird white", "cú tuyết"),
+    "beluga whale": ("beluga whale underwater white", "cá voi trắng"),
 
-    #Cá biển sâu
-    "anglerfish": ("anglerfish deep sea glowing", "cá cần câu"),
-    "gulper eel": ("gulper eel deep sea", "cá chình khổng lồ"),
-    "vampire squid": ("vampire squid deep sea", "mực ma cà rồng"),
-    "blobfish": ("blobfish deep sea", "cá giọt nước"),
-    "lanternfish": ("lanternfish glowing ocean", "cá đèn lồng"),
-    "dragonfish": ("dragonfish deep sea", "cá rồng biển sâu"),
-    "fangtooth": ("fangtooth fish deep sea", "cá răng nanh"),
-    "tripod fish": ("tripod fish deep sea", "cá ba chân"),
-    "barreleye": ("barreleye fish transparent head", "cá đầu trong suốt"),
-    "giant isopod": ("giant isopod deep sea crustacean", "bọ biển khổng lồ"),
-
-    #Động vật Bắc Cực
-    "arctic wolf": ("arctic wolf snow", "sói bắc cực"),
-    "arctic hare": ("arctic hare snow", "thỏ bắc cực"),
-    "arctic tern": ("arctic tern bird migration", "chim nhạn bắc cực"),
-    "snowy owl": ("snowy owl arctic", "cú tuyết"),
-    "narwhal": ("narwhal whale tusk", "cá voi kỳ lân"),
-    "beluga whale": ("beluga whale white", "cá voi trắng"),
-    "arctic ground squirrel": ("arctic ground squirrel", "sóc đất bắc cực"),
-
-    #Động vật Nam Cực => Đang thực hiện
-    "emperor penguin": ("emperor penguin antarctica", "chim cánh cụt hoàng đế"),
-    "adelie penguin": ("adelie penguin antarctica", "chim cánh cụt adelie"),
-    "chinstrap penguin": ("chinstrap penguin antarctica", "chim cánh cụt quai mũ"),
-    "weddell seal": ("weddell seal antarctica", "hải cẩu weddell"),
+    #Động vật Nam Cực (giữ loài phổ biến)
+    "emperor penguin": ("emperor penguin colony antarctica", "chim cánh cụt hoàng đế"),
     "leopard seal": ("leopard seal antarctica", "hải cẩu báo"),
-    "crabeater seal": ("crabeater seal antarctica", "hải cẩu ăn cua"),
 
-    #Động vật Amazon
-    "jaguarundi": ("jaguarundi wild cat", "mèo rừng"),
-    "pink river dolphin": ("amazon river dolphin pink", "cá heo sông"),
-    "poison dart frog": ("poison dart frog colorful", "ếch phi tiêu"),
-    "green anaconda": ("green anaconda snake", "trăn xanh"),
+    #Động vật Amazon (chỉ giữ loài phổ biến)
+    "poison dart frog": ("poison dart frog colorful close up", "ếch phi tiêu"),
     "capuchin monkey": ("capuchin monkey jungle", "khỉ mũ"),
-    "howler monkey": ("howler monkey jungle", "khỉ hú"),
-    "spider monkey": ("spider monkey jungle", "khỉ nhện"),
-    "electric eel": ("electric eel amazon", "cá chình điện"),
-    "piranha": ("piranha fish amazon", "cá ăn thịt"),
-    "arapaima": ("arapaima giant fish", "cá khổng lồ"),
+    "piranha": ("piranha fish underwater teeth", "cá ăn thịt"),
 
-    #Động vật quý hiếm
-    "saola": ("saola rare animal vietnam", "sao la"),
-    "amur leopard": ("amur leopard rare", "báo amur"),
-    "sumatran tiger": ("sumatran tiger rare", "hổ sumatra"),
-    "vaquita": ("vaquita porpoise rare", "cá heo vaquita"),
-    "okapi": ("okapi giraffe relative", "hươu okapi"),
-    "aye aye": ("aye aye lemur madagascar", "vượn aye aye"),
-    "pangolin giant": ("giant pangolin", "tê tê khổng lồ"),
-    "red panda": ("red panda rare", "gấu trúc đỏ"),
-    "ethiopian wolf": ("ethiopian wolf rare", "sói ethiopia"),
-    "kakapo": ("kakapo flightless parrot", "vẹt kakapo"),
+    #Động vật quý hiếm (chỉ giữ loài có ảnh tốt trên Pexels)
+    "red panda": ("red panda tree bamboo", "gấu trúc đỏ"),
+    "okapi": ("okapi close up wild", "hươu okapi"),
+    "pangolin": ("pangolin close up scales wild", "tê tê"),
 
     # ===== ĐỘNG VẬT KHÁC =====
-    "deer": ("deer wildlife forest", "nai"),
-    "moose": ("moose wildlife antlers", "nai sừng tấm"),
-    "elk": ("elk wildlife", "nai sừng xám"),
-    "reindeer": ("reindeer snow christmas", "tuần lộc"),
-    "camel": ("camel desert sand", "lạc đà"),
-    "badger": ("badger wildlife", "lửng"),
-    "honey badger": ("honey badger wildlife fierce", "lửng mật"),
-    "weasel": ("weasel wildlife small", "chồn"),
-    "ferret": ("ferret pet cute", "chồn sương"),
-    "mink": ("mink wildlife", "chồn vizon"),
-    "otter": ("otter river cute swimming", "rái cá"),
-    "sea otter": ("sea otter ocean cute", "rái cá biển"),
-    "beaver": ("beaver river dam", "hải ly"),
-    "hedgehog": ("hedgehog cute small spines", "nhím"),
-    "porcupine": ("porcupine wildlife spines", "nhím"),
-    "pangolin": ("pangolin wildlife scales", "tê tê"),
-    "sloth": ("sloth wildlife slow cute tree", "con lười"),
-    "armadillo": ("armadillo wildlife", "tatu"),
-    "raccoon": ("raccoon wildlife masked", "gấu mèo"),
-    "skunk": ("skunk wildlife stripe", "chồn hôi"),
-    "squirrel": ("squirrel wildlife tree nut", "sóc"),
-    "chipmunk": ("chipmunk wildlife cute small", "sóc chuột"),
-    "bat": ("bat flying night wildlife", "dơi"),
-    "meerkat": ("meerkat wildlife standing", "cầy meerkat"),
-    "mongoose": ("mongoose wildlife", "cầy mangut"),
-    "hyena": ("hyena wildlife africa laughing", "linh cẩu"),
-    "jackal": ("jackal wildlife", "chó rừng"),
-    "wild boar": ("wild boar wildlife forest", "lợn rừng"),
-    "bison": ("bison wildlife america", "bò rừng bison"),
-    "yak": ("yak wildlife mountain", "bò tây tạng"),
-    "musk ox": ("musk ox arctic", "bò xạ hương"),
-    "tapir": ("tapir wildlife", "heo vòi"),
-    "anteater": ("anteater wildlife tongue", "thú ăn kiến"),
-    "aardvark": ("aardvark wildlife", "lợn đất"),
+    "deer": ("deer wild forest close up", "nai"),
+    "moose": ("moose wild close up", "nai sừng tấm"),
+    "elk": ("elk wild close up", "nai sừng xám"),
+    "reindeer": ("reindeer snow wild", "tuần lộc"),
+    "camel": ("camel desert close up", "lạc đà"),
+    "badger": ("badger animal nocturnal mammal", "lửng"),
+    "honey badger": ("honey badger animal africa", "lửng mật"),
+    "weasel": ("weasel wild close up", "chồn"),
+    "ferret": ("ferret close up face", "chồn sương"),
+    "mink": ("mink wild close up", "chồn vizon"),
+    "otter": ("otter swimming river close up", "rái cá"),
+    "sea otter": ("sea otter floating ocean close up", "rái cá biển"),
+    "beaver": ("beaver river close up", "hải ly"),
+    "hedgehog": ("hedgehog close up spines", "nhím"),
+    "porcupine": ("porcupine close up spines", "nhím"),
+    "pangolin": ("pangolin close up scales wild", "tê tê"),
+    "sloth": ("sloth tree close up", "con lười"),
+    "armadillo": ("armadillo close up wild", "tatu"),
+    "raccoon": ("raccoon close up face wild", "gấu mèo"),
+    "skunk": ("skunk close up wild", "chồn hôi"),
+    "squirrel": ("squirrel tree close up", "sóc"),
+    "chipmunk": ("chipmunk close up", "sóc chuột"),
+    "bat": ("bat flying close up wild", "dơi"),
+    "meerkat": ("meerkat standing close up wild", "cầy meerkat"),
+    "mongoose": ("mongoose close up wild", "cầy mangut"),
+    "hyena": ("hyena wild safari close up", "linh cẩu"),
+    "jackal": ("jackal wild close up", "chó rừng"),
+    "wild boar": ("wild boar forest close up", "lợn rừng"),
+    "bison": ("bison wild close up", "bò rừng bison"),
+    "yak": ("yak mountain close up", "bò tây tạng"),
+    "musk ox": ("musk ox arctic close up", "bò xạ hương"),
+    "tapir": ("tapir wild close up", "heo vòi"),
+    "anteater": ("anteater wild close up", "thú ăn kiến"),
+    "aardvark": ("aardvark wild close up", "lợn đất"),
 
     # ===== TIẾNG VIỆT (để tương thích ngược) =====
     "sư tử": ("lion wildlife africa", "sư tử"),
@@ -506,82 +397,125 @@ def get_animal_info(animal_name: str) -> tuple[str, str]:
     return "animal wildlife", animal_name
 
 
-async def search_pexels_videos(query: str, per_page: int = 5, orientation: str = "landscape") -> list[dict]:
-    """Tìm video từ Pexels API.
-    
-    Args:
-        query: Từ khóa tìm kiếm
-        per_page: Số kết quả mỗi trang
-        orientation: "landscape" (ngang), "portrait" (dọc), hoặc "square" (vuông)
+def _build_search_queries(query: str) -> list[str]:
     """
-    if not PEXELS_API_KEY:
-        print("  [!] Cần PEXELS_API_KEY trong .env")
-        return []
-    
-    # Giữ query đơn giản để search chính xác hơn
-    # Chỉ thêm "animal" nếu query chưa có, không thêm quá nhiều từ khóa
-    clean_query = query.strip()
-    print(f"      [Pexels] Search query: '{clean_query}'")
-    
+    Tạo danh sách query từ chính xác → tổng quát để thử lần lượt.
+
+    Nguyên tắc:
+    - Query gốc (có môi trường sống) đứng TRƯỚC để tránh ảnh đồ ăn/nấu nướng
+    - Ví dụ "shrimp underwater alive" trước "shrimp" để không lấy ảnh tôm luộc
+    """
+    clean = query.strip()
+
+    # Tách tên động vật chính (bỏ filler words)
+    filler_words = {
+        "wildlife", "animal", "nature", "africa", "ocean", "sea", "underwater",
+        "forest", "jungle", "tropical", "arctic", "snow", "desert", "mountain",
+        "cute", "pet", "domestic", "farm", "colorful", "beautiful", "majestic",
+        "flying", "running", "swimming", "jumping", "hunting", "eating",
+        "prehistoric", "rare", "giant", "small", "large", "big", "baby",
+        "close", "up", "only", "real", "museum", "fossil", "skeleton",
+        "documentary", "water", "river", "lake", "beach", "grass",
+        "bird", "fish", "insect", "reptile", "mammal",
+        "wild", "safari", "alive", "face", "macro", "render",
+        "colony", "field", "flock", "pack", "school",
+        "glowing", "ice", "ears", "spines", "scales",
+        "3d", "realistic", "floor",
+    }
+    core_words = [w for w in clean.lower().split() if w not in filler_words]
+    animal_name = " ".join(core_words[:2]) if core_words else clean.split()[0]
+
+    queries = []
+
+    # Query 1: query gốc đầy đủ (tên + môi trường) → chính xác nhất
+    queries.append(clean)
+
+    # Query 2: tên động vật + "wildlife" → tránh ảnh đồ ăn
+    queries.append(f"{animal_name} wildlife")
+
+    # Query 3: chỉ tên động vật (fallback)
+    queries.append(animal_name)
+
+    # Loại bỏ trùng lặp, giữ thứ tự
+    seen = set()
+    unique = []
+    for q in queries:
+        q_lower = q.lower().strip()
+        if q_lower not in seen:
+            seen.add(q_lower)
+            unique.append(q)
+
+    return unique
+
+
+def _get_aspect_ratio_range(orientation: str) -> tuple[float, float, str]:
+    """Trả về (min_ratio, max_ratio, label) theo orientation."""
+    if orientation == "portrait":
+        return 0.4, 0.75, "PORTRAIT"
+    elif orientation == "square":
+        return 0.9, 1.1, "SQUARE"
+    else:  # landscape
+        return 1.3, 2.5, "LANDSCAPE"
+
+
+async def _pexels_video_search_single(query: str, per_page: int, orientation: str,
+                                       min_ratio: float, max_ratio: float,
+                                       ratio_label: str) -> list[dict]:
+    """Thực hiện 1 lần search video Pexels với query cho trước."""
     url = "https://api.pexels.com/videos/search"
     headers = {"Authorization": PEXELS_API_KEY}
-    params = {"query": clean_query, "per_page": per_page, "orientation": orientation}
-    
-    # Xác định tỷ lệ aspect ratio cần lọc
-    if orientation == "portrait":
-        min_ratio, max_ratio = 0.4, 0.7  # 9:16 = 0.56
-        ratio_label = "PORTRAIT"
-    elif orientation == "square":
-        min_ratio, max_ratio = 0.9, 1.1  # 1:1 = 1.0
-        ratio_label = "SQUARE"
-    else:  # landscape
-        min_ratio, max_ratio = 1.5, 2.0  # 16:9 = 1.78
-        ratio_label = "LANDSCAPE"
-    
+    params = {"query": query, "per_page": per_page, "orientation": orientation}
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers, params=params) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    videos = []
-                    for v in data.get("videos", []):
-                        # Lấy video chất lượng phù hợp (HD hoặc SD)
-                        for vf in v.get("video_files", []):
-                            vf_width = vf.get("width", 0)
-                            vf_height = vf.get("height", 0)
-                            
-                            if vf_height == 0:
-                                continue
-                            
-                            # Tính tỷ lệ khung hình
-                            aspect_ratio = vf_width / vf_height
-                            is_correct_orientation = min_ratio <= aspect_ratio <= max_ratio
-                            is_good_quality = vf.get("quality") in ["hd", "sd"] and max(vf_width, vf_height) >= 720
-                            
-                            if is_correct_orientation and is_good_quality:
-                                print(f"        [Pexels] ✓ {ratio_label} video: {vf_width}x{vf_height} (ratio: {aspect_ratio:.2f})")
-                                videos.append({
-                                    "id": v["id"],
-                                    "url": vf["link"],
-                                    "width": vf_width,
-                                    "height": vf_height,
-                                    "duration": v.get("duration", 10),
-                                })
-                                break
-                            else:
-                                print(f"        [Pexels] ✗ Skip video: {vf_width}x{vf_height} (ratio: {aspect_ratio:.2f}, need {min_ratio}-{max_ratio})")
-                    return videos
-                else:
-                    print(f"  [!] Pexels API error: {resp.status}")
+                if resp.status != 200:
+                    print(f"        [Pexels] API error: {resp.status}")
                     return []
+
+                data = await resp.json()
+                videos = []
+                for v in data.get("videos", []):
+                    # Ưu tiên video file chất lượng cao nhất phù hợp
+                    best_file = None
+                    best_res = 0
+                    for vf in v.get("video_files", []):
+                        vf_width = vf.get("width", 0)
+                        vf_height = vf.get("height", 0)
+                        if vf_height == 0:
+                            continue
+
+                        aspect_ratio = vf_width / vf_height
+                        is_correct_orientation = min_ratio <= aspect_ratio <= max_ratio
+                        is_good_quality = vf.get("quality") in ["hd", "sd"] and max(vf_width, vf_height) >= 720
+
+                        if is_correct_orientation and is_good_quality:
+                            res = vf_width * vf_height
+                            if res > best_res:
+                                best_res = res
+                                best_file = vf
+
+                    if best_file:
+                        bw = best_file.get("width", 0)
+                        bh = best_file.get("height", 0)
+                        print(f"        [Pexels] ✓ {ratio_label} video: {bw}x{bh} (ratio: {bw/bh:.2f})")
+                        videos.append({
+                            "id": v["id"],
+                            "url": best_file["link"],
+                            "width": bw,
+                            "height": bh,
+                            "duration": v.get("duration", 10),
+                        })
+
+                return videos
     except Exception as e:
-        print(f"  [!] Pexels search error: {e}")
+        print(f"        [Pexels] Search error: {e}")
         return []
 
 
-async def search_pexels_images(query: str, per_page: int = 5, orientation: str = "landscape") -> list[dict]:
-    """Tìm ảnh từ Pexels API.
-    
+async def search_pexels_videos(query: str, per_page: int = 10, orientation: str = "landscape") -> list[dict]:
+    """Tìm video từ Pexels API với nhiều lượt thử query từ chính xác → tổng quát.
+
     Args:
         query: Từ khóa tìm kiếm
         per_page: Số kết quả mỗi trang
@@ -590,59 +524,92 @@ async def search_pexels_images(query: str, per_page: int = 5, orientation: str =
     if not PEXELS_API_KEY:
         print("  [!] Cần PEXELS_API_KEY trong .env")
         return []
-    
-    # Giữ query đơn giản để search chính xác hơn
-    clean_query = query.strip()
-    print(f"      [Pexels] Search query: '{clean_query}'")
-    
+
+    min_ratio, max_ratio, ratio_label = _get_aspect_ratio_range(orientation)
+    queries = _build_search_queries(query)
+
+    for qi, q in enumerate(queries):
+        print(f"      [Pexels Video] Try {qi+1}/{len(queries)}: '{q}'")
+        videos = await _pexels_video_search_single(q, per_page, orientation,
+                                                     min_ratio, max_ratio, ratio_label)
+        if videos:
+            print(f"      [Pexels Video] ✓ Found {len(videos)} videos with query '{q}'")
+            return videos
+        print(f"      [Pexels Video] ✗ No results for '{q}'")
+
+    print(f"      [Pexels Video] ✗ No videos found after {len(queries)} attempts")
+    return []
+
+
+async def _pexels_image_search_single(query: str, per_page: int, orientation: str,
+                                       min_ratio: float, max_ratio: float,
+                                       ratio_label: str) -> list[dict]:
+    """Thực hiện 1 lần search ảnh Pexels với query cho trước."""
     url = "https://api.pexels.com/v1/search"
     headers = {"Authorization": PEXELS_API_KEY}
-    params = {"query": clean_query, "per_page": per_page, "orientation": orientation}
-    
-    # Xác định tỷ lệ aspect ratio cần lọc
-    if orientation == "portrait":
-        min_ratio, max_ratio = 0.4, 0.8  # 9:16 = 0.56
-        ratio_label = "PORTRAIT"
-    elif orientation == "square":
-        min_ratio, max_ratio = 0.9, 1.1  # 1:1 = 1.0
-        ratio_label = "SQUARE"
-    else:  # landscape
-        min_ratio, max_ratio = 1.3, 2.5  # 16:9 = 1.78
-        ratio_label = "LANDSCAPE"
-    
+    params = {"query": query, "per_page": per_page, "orientation": orientation}
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers, params=params) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    images = []
-                    for p in data.get("photos", []):
-                        img_width = p.get("width", 0)
-                        img_height = p.get("height", 0)
-                        
-                        if img_height == 0:
-                            continue
-                        
-                        aspect_ratio = img_width / img_height
-                        if min_ratio <= aspect_ratio <= max_ratio:
-                            print(f"        [Pexels] ✓ {ratio_label} image: {img_width}x{img_height} (ratio: {aspect_ratio:.2f})")
-                            images.append({
-                                "id": p["id"],
-                                "url": p["src"]["large2x"],
-                                "url_landscape": p["src"].get("landscape", p["src"]["large2x"]),
-                                "url_portrait": p["src"].get("portrait", p["src"]["large2x"]),
-                                "width": img_width,
-                                "height": img_height,
-                            })
-                        else:
-                            print(f"        [Pexels] ✗ Skip image: {img_width}x{img_height} (ratio: {aspect_ratio:.2f}, need {min_ratio}-{max_ratio})")
-                    return images
-                else:
-                    print(f"  [!] Pexels API error: {resp.status}")
+                if resp.status != 200:
+                    print(f"        [Pexels] API error: {resp.status}")
                     return []
+
+                data = await resp.json()
+                images = []
+                for p in data.get("photos", []):
+                    img_width = p.get("width", 0)
+                    img_height = p.get("height", 0)
+
+                    if img_height == 0:
+                        continue
+
+                    aspect_ratio = img_width / img_height
+                    if min_ratio <= aspect_ratio <= max_ratio:
+                        print(f"        [Pexels] ✓ {ratio_label} image: {img_width}x{img_height} (ratio: {aspect_ratio:.2f})")
+                        images.append({
+                            "id": p["id"],
+                            "url": p["src"]["large2x"],
+                            "url_landscape": p["src"].get("landscape", p["src"]["large2x"]),
+                            "url_portrait": p["src"].get("portrait", p["src"]["large2x"]),
+                            "width": img_width,
+                            "height": img_height,
+                        })
+                    else:
+                        print(f"        [Pexels] ✗ Skip image: {img_width}x{img_height} (ratio: {aspect_ratio:.2f}, need {min_ratio}-{max_ratio})")
+                return images
     except Exception as e:
-        print(f"  [!] Pexels search error: {e}")
+        print(f"        [Pexels] Search error: {e}")
         return []
+
+
+async def search_pexels_images(query: str, per_page: int = 10, orientation: str = "landscape") -> list[dict]:
+    """Tìm ảnh từ Pexels API với nhiều lượt thử query từ chính xác → tổng quát.
+
+    Args:
+        query: Từ khóa tìm kiếm
+        per_page: Số kết quả mỗi trang
+        orientation: "landscape" (ngang), "portrait" (dọc), hoặc "square" (vuông)
+    """
+    if not PEXELS_API_KEY:
+        print("  [!] Cần PEXELS_API_KEY trong .env")
+        return []
+
+    min_ratio, max_ratio, ratio_label = _get_aspect_ratio_range(orientation)
+    queries = _build_search_queries(query)
+
+    for qi, q in enumerate(queries):
+        print(f"      [Pexels Image] Try {qi+1}/{len(queries)}: '{q}'")
+        images = await _pexels_image_search_single(q, per_page, orientation,
+                                                     min_ratio, max_ratio, ratio_label)
+        if images:
+            print(f"      [Pexels Image] ✓ Found {len(images)} images with query '{q}'")
+            return images
+        print(f"      [Pexels Image] ✗ No results for '{q}'")
+
+    print(f"      [Pexels Image] ✗ No images found after {len(queries)} attempts")
+    return []
 
 
 async def download_file(url: str, output_path: str) -> str | None:
@@ -1199,11 +1166,11 @@ def merge_audio_to_video(video_path: str, audio_path: str, output_path: str, ani
                 "ffmpeg", "-y",
                 "-i", video_path, "-i", audio_path,
                 "-filter_complex",
-                "[0:a]volume=0.4[original];[1:a]volume=1.2[narration];"
-                "[narration][original]amix=inputs=2:duration=longest:dropout_transition=1[aout]",
+                "[0:a]volume=0.3[original];[1:a]volume=1.5[narration];"
+                "[narration][original]amix=inputs=2:duration=longest:dropout_transition=1,volume=2.0[aout]",
                 "-map", "0:v:0", "-map", "[aout]",
                 "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                "-c:a", "aac", "-b:a", "128k",
+                "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
                 "-t", str(video_duration), "-movflags", "+faststart",
                 output_path,
             ]
@@ -1213,14 +1180,17 @@ def merge_audio_to_video(video_path: str, audio_path: str, output_path: str, ani
                 mix_animal_sound = False
 
         if not mix_animal_sound:
-            # Mac dinh: chi doc ten (GIONG NHU TRUOC)
+            # Mac dinh: chi doc ten
+            # Dùng apad để pad silence, giữ nguyên volume narration
             print(f"      [MERGE] Narration only (doc ten)")
             cmd = [
                 "ffmpeg", "-y",
                 "-i", video_path, "-i", audio_path,
-                "-map", "0:v:0", "-map", "1:a:0",
+                "-filter_complex",
+                f"[1:a]aresample=44100,apad=whole_dur={video_duration},volume=1.5[aout]",
+                "-map", "0:v:0", "-map", "[aout]",
                 "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                "-c:a", "aac", "-b:a", "128k",
+                "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
                 "-t", str(video_duration), "-movflags", "+faststart",
                 output_path,
             ]
@@ -1288,19 +1258,21 @@ def concatenate_videos(video_paths: list[str], output_path: str,
         else:
             aspect_str = "1:1"
         
-        # Dùng re-encode để đảm bảo tương thích
+        # Dùng re-encode + loudnorm để chuẩn hóa âm lượng đồng đều
         cmd = [
             "ffmpeg", "-y",
             "-f", "concat",
             "-safe", "0",
             "-i", list_path,
             "-vf", f"scale={target_width}:{target_height}:force_original_aspect_ratio=increase,crop={target_width}:{target_height},setsar=1:1,format=yuv420p",
+            "-af", "dynaudnorm=f=250:g=15:p=0.95:m=10",
             "-aspect", aspect_str,
             "-c:v", "libx264",
             "-preset", "fast",
             "-crf", "23",
             "-c:a", "aac",
             "-b:a", "128k",
+            "-ar", "44100",
             "-movflags", "+faststart",
             output_path,
         ]
@@ -1325,6 +1297,110 @@ def concatenate_videos(video_paths: list[str], output_path: str,
         return None
     except Exception as e:
         print(f"  [!] Concatenate error: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+def create_intro_clip(
+    work_dir: str,
+    image_path: str = "images/gioi_thieu.jpeg",
+    bg_music_path: str = "sounds/nhac_nen_mo_dau_dong_vat.mp3",
+    voice_path: str = "sounds/voice_first.mp3",
+    duration: float = 7.0,
+    target_width: int = 1920,
+    target_height: int = 1080,
+) -> str | None:
+    """
+    Tạo clip mở đầu (intro) với:
+    - Hình ảnh slide có hiệu ứng zoom-in chậm
+    - Nhạc nền (cắt theo duration)
+    - Voice overlay
+
+    Returns: đường dẫn file video intro hoặc None
+    """
+    try:
+        # Resolve đường dẫn tuyệt đối
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        image_abs = os.path.join(base_dir, image_path) if not os.path.isabs(image_path) else image_path
+        bg_music_abs = os.path.join(base_dir, bg_music_path) if not os.path.isabs(bg_music_path) else bg_music_path
+        voice_abs = os.path.join(base_dir, voice_path) if not os.path.isabs(voice_path) else voice_path
+
+        for label, p in [("Image", image_abs), ("BG Music", bg_music_abs), ("Voice", voice_abs)]:
+            if not os.path.exists(p):
+                print(f"      [INTRO] ✗ {label} not found: {p}")
+                return None
+
+        os.makedirs(work_dir, exist_ok=True)
+        intro_output = os.path.join(work_dir, "intro_clip.mp4")
+
+        target_w, target_h = target_width, target_height
+
+        # Tính aspect string
+        if target_w > target_h:
+            aspect_str = "16:9"
+        elif target_w < target_h:
+            aspect_str = "9:16"
+        else:
+            aspect_str = "1:1"
+
+        # Hiệu ứng zoom-in chậm (ken burns) trên ảnh
+        # Scale ảnh lớn hơn 20% rồi zoom từ 100% -> 120% trong suốt duration
+        zoom_filter = (
+            f"scale={int(target_w * 1.3)}:{int(target_h * 1.3)}:force_original_aspect_ratio=increase,"
+            f"crop={int(target_w * 1.3)}:{int(target_h * 1.3)},"
+            f"zoompan=z='min(zoom+0.0015,1.2)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+            f":d={int(duration * Config.FPS)}:s={target_w}x{target_h}:fps={Config.FPS},"
+            f"format=yuv420p"
+        )
+
+        # Mix audio: nhạc nền (volume thấp) + voice (volume cao)
+        # Voice bắt đầu sau 0.5s, nhạc nền fade in/out
+        fade_out_start = duration - 1.0
+        audio_filter = (
+            f"[1:a]atrim=0:{duration},volume=0.25,afade=t=in:st=0:d=1.0,afade=t=out:st={fade_out_start}:d=1.0[bg];"
+            f"[2:a]volume=1.0,adelay=500|500[voice];"
+            f"[bg][voice]amix=inputs=2:duration=first:dropout_transition=1[aout]"
+        )
+
+        cmd = [
+            "ffmpeg", "-y",
+            "-loop", "1", "-i", image_abs,       # input 0: image
+            "-i", bg_music_abs,                    # input 1: background music
+            "-i", voice_abs,                       # input 2: voice
+            "-filter_complex",
+            f"{zoom_filter}[v];{audio_filter}",
+            "-map", "[v]", "-map", "[aout]",
+            "-t", str(duration),
+            "-aspect", aspect_str,
+            "-r", str(Config.FPS),
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+            "-movflags", "+faststart",
+            intro_output,
+        ]
+
+        print(f"      [INTRO] Creating intro clip: {duration}s, {target_w}x{target_h}")
+        print(f"      [INTRO] Image: {image_abs}")
+        print(f"      [INTRO] BG Music: {bg_music_abs}")
+        print(f"      [INTRO] Voice: {voice_abs}")
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            print(f"      [INTRO] ✗ FFmpeg error: {result.stderr[:500]}")
+            return None
+
+        if os.path.exists(intro_output) and os.path.getsize(intro_output) > 1000:
+            size_kb = os.path.getsize(intro_output) / 1024
+            final_dur = get_video_duration(intro_output)
+            print(f"      [INTRO] ✓ Created: {size_kb:.1f} KB, {final_dur:.1f}s")
+            return intro_output
+
+        print(f"      [INTRO] ✗ Output file not created or too small")
+        return None
+    except Exception as e:
+        print(f"      [INTRO] ✗ Error: {e}")
         import traceback
         traceback.print_exc()
         return None
@@ -1382,7 +1458,7 @@ async def create_animal_clip(
     # Thêm im lặng trước và sau audio để có nhịp
     if audio_result:
         audio_with_silence = os.path.join(clip_dir, f"narration_{safe_name}_padded.mp3")
-        padded = add_silence_to_audio(audio_path, audio_with_silence, silence_before=0.8, silence_after=1.5)
+        padded = add_silence_to_audio(audio_path, audio_with_silence, silence_before=0.3, silence_after=0.3)
         if padded:
             audio_path = audio_with_silence
             audio_duration = get_video_duration(audio_path)
@@ -1403,7 +1479,7 @@ async def create_animal_clip(
     if use_video:
         # Thử tìm video trước với đúng orientation
         print(f"      [VIDEO] Searching {orientation} videos for: {search_term}")
-        videos = await search_pexels_videos(search_term, per_page=5, orientation=orientation)
+        videos = await search_pexels_videos(search_term, per_page=10, orientation=orientation)
         
         if not videos:
             # Thử Pixabay
@@ -1427,7 +1503,7 @@ async def create_animal_clip(
     if not media_path:
         # Fallback: dùng ảnh
         print(f"      [IMAGE] Searching {orientation} images for: {search_term}")
-        images = await search_pexels_images(search_term, per_page=5, orientation=orientation)
+        images = await search_pexels_images(search_term, per_page=10, orientation=orientation)
         
         if images:
             image = random.choice(images)
@@ -1534,9 +1610,6 @@ def generate_animal_scripts(user_prompt: str, num_videos: int = 1, animals_per_v
         "predators": ["săn mồi", "predator", "hunter", "ăn thịt"],
         "cute": ["dễ thương", "cute", "đáng yêu", "adorable"],
         "fish": ["cá", "fish", "aquarium"],
-        "dinosaur": ["khủng long", "dinosaur", "prehistoric", "tiền sử"],
-        "rare": ["quý hiếm", "rare", "endangered"],
-        "deep sea": ["biển sâu", "deep sea", "abyss"],
     }
     
     for cat_key, keywords in keyword_mapping.items():
@@ -1552,23 +1625,20 @@ def generate_animal_scripts(user_prompt: str, num_videos: int = 1, animals_per_v
         # Mapping từ category -> keywords để lọc từ ANIMAL_DATABASE
         category_keywords = {
             "african": ["africa", "safari", "lion", "elephant", "giraffe", "zebra", "rhino", "hippo", "leopard", "cheetah", "hyena", "buffalo", "antelope", "wildebeest", "gazelle", "warthog"],
-            "ocean": ["ocean", "sea", "underwater", "marine", "dolphin", "whale", "shark", "turtle", "seal", "octopus", "jellyfish", "coral", "fish", "crab", "lobster", "shrimp", "squid", "orca", "manatee", "dugong", "seahorse", "starfish", "clownfish", "manta", "stingray", "walrus", "narwhal", "beluga"],
-            "birds": ["bird", "eagle", "owl", "hawk", "falcon", "parrot", "swan", "pelican", "crane", "heron", "stork", "vulture", "crow", "raven", "sparrow", "pigeon", "dove", "robin", "kingfisher", "woodpecker", "chicken", "rooster", "duck", "goose", "turkey", "flamingo", "peacock", "toucan", "hummingbird", "penguin", "emu", "albatross", "seagull", "magpie", "canary", "finch", "nightingale", "lark", "cockatoo", "budgerigar", "parakeet", "quetzal", "macaw"],
+            "ocean": ["ocean", "sea", "underwater", "marine", "dolphin", "whale", "shark", "turtle", "seal", "octopus", "jellyfish", "coral", "fish", "crab", "lobster", "shrimp", "squid", "orca", "manatee", "seahorse", "starfish", "clownfish", "manta", "stingray", "beluga"],
+            "birds": ["bird", "eagle", "owl", "hawk", "falcon", "parrot", "swan", "pelican", "crane", "heron", "stork", "vulture", "crow", "raven", "sparrow", "pigeon", "dove", "robin", "kingfisher", "woodpecker", "chicken", "rooster", "duck", "goose", "turkey", "flamingo", "peacock", "toucan", "hummingbird", "penguin", "emu", "seagull", "cockatoo", "macaw"],
             "pets": ["pet", "cat", "dog", "kitten", "puppy", "rabbit", "bunny", "hamster", "guinea pig", "goldfish", "parrot", "ferret"],
             "farm": ["farm", "cow", "bull", "pig", "horse", "pony", "donkey", "sheep", "lamb", "goat", "llama", "alpaca", "chicken", "duck", "goose", "turkey"],
             "forest": ["forest", "bear", "wolf", "fox", "deer", "moose", "elk", "squirrel", "raccoon", "badger", "hedgehog", "owl", "rabbit"],
-            "jungle": ["jungle", "tropical", "tiger", "jaguar", "monkey", "gorilla", "orangutan", "chimpanzee", "gibbon", "toucan", "parrot", "snake", "chameleon", "sloth", "anaconda", "piranha", "capuchin", "howler", "spider monkey"],
-            "arctic": ["arctic", "polar", "snow", "antarctic", "polar bear", "penguin", "seal", "walrus", "arctic fox", "reindeer", "narwhal", "beluga", "snowy owl", "arctic wolf", "arctic hare", "lemming"],
-            "australia": ["australia", "kangaroo", "koala", "platypus", "wombat", "emu", "tasmanian", "kiwi"],
-            "reptiles": ["reptile", "snake", "cobra", "python", "anaconda", "viper", "crocodile", "alligator", "lizard", "chameleon", "iguana", "komodo", "gecko", "tortoise", "turtle", "monitor", "skink"],
-            "primates": ["monkey", "ape", "gorilla", "chimpanzee", "orangutan", "gibbon", "baboon", "lemur", "macaque", "capuchin", "howler", "spider monkey"],
-            "insects": ["insect", "butterfly", "bee", "dragonfly", "ladybug", "beetle", "ant", "spider", "tarantula", "scorpion", "grasshopper", "cricket", "firefly", "moth", "caterpillar", "praying mantis", "wasp", "termite", "cockroach", "mosquito", "centipede", "millipede"],
+            "jungle": ["jungle", "tropical", "tiger", "jaguar", "monkey", "gorilla", "orangutan", "chimpanzee", "gibbon", "toucan", "parrot", "snake", "chameleon", "sloth", "anaconda", "piranha", "capuchin"],
+            "arctic": ["arctic", "polar", "snow", "antarctic", "polar bear", "penguin", "seal", "arctic fox", "reindeer", "beluga", "snowy owl", "arctic wolf"],
+            "australia": ["australia", "kangaroo", "koala", "platypus", "wombat", "emu", "kiwi"],
+            "reptiles": ["reptile", "snake", "cobra", "python", "anaconda", "viper", "crocodile", "alligator", "lizard", "chameleon", "iguana", "komodo", "gecko", "tortoise", "turtle", "monitor"],
+            "primates": ["monkey", "ape", "gorilla", "chimpanzee", "orangutan", "gibbon", "baboon", "lemur", "macaque", "capuchin"],
+            "insects": ["insect", "butterfly", "bee", "dragonfly", "ladybug", "beetle", "ant", "spider", "tarantula", "scorpion", "grasshopper", "cricket", "firefly", "moth", "caterpillar", "praying mantis", "wasp", "cockroach", "centipede"],
             "predators": ["predator", "lion", "tiger", "wolf", "eagle", "shark", "crocodile", "cheetah", "leopard", "hawk", "orca", "jaguar", "bear", "hyena"],
             "cute": ["cute", "panda", "koala", "otter", "hedgehog", "rabbit", "kitten", "puppy", "sloth", "penguin", "red panda", "bunny", "hamster"],
-            "fish": ["fish", "salmon", "tuna", "eel", "pufferfish", "catfish", "tilapia", "anchovy", "sardine", "cod", "haddock", "halibut", "flounder", "barracuda", "marlin", "swordfish", "angelfish", "betta", "koi", "carp", "perch", "piranha", "arapaima", "goldfish", "clownfish"],
-            "dinosaur": ["dinosaur", "tyrannosaurus", "velociraptor", "triceratops", "stegosaurus", "brachiosaurus", "diplodocus", "spinosaurus", "ankylosaurus", "allosaurus", "pterodactyl", "archaeopteryx", "mammoth", "saber tooth", "megalodon"],
-            "rare": ["rare", "saola", "amur", "sumatran", "vaquita", "okapi", "aye aye", "pangolin", "red panda", "ethiopian", "kakapo"],
-            "deep sea": ["deep sea", "anglerfish", "gulper", "vampire squid", "blobfish", "lanternfish", "dragonfish", "fangtooth", "tripod fish", "barreleye", "giant isopod"],
+            "fish": ["fish", "salmon", "tuna", "eel", "pufferfish", "angelfish", "betta", "koi", "goldfish", "clownfish", "piranha"],
         }
         
         # Lọc động vật phù hợp với chủ đề

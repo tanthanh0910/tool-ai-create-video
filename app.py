@@ -294,6 +294,14 @@ def api_generate_animal_video(prompt: str, num: int, orientation: str = "landsca
             
             yield log_event(f"  Working dir: {work_dir}")
             
+            # === INTRO CLIP (dùng file có sẵn) ===
+            intro_clip_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "intro_clip.mp4")
+            if os.path.exists(intro_clip_path):
+                yield log_event(f"  [INTRO] ✓ Dung intro co san: {intro_clip_path}", "success")
+            else:
+                intro_clip_path = None
+                yield log_event(f"  [INTRO] Khong tim thay intro, bo qua")
+
             clips = []
             for ai, animal in enumerate(animals):
                 yield log_event(f"  [{ai+1}/{len(animals)}] {animal}...")
@@ -325,8 +333,16 @@ def api_generate_animal_video(prompt: str, num: int, orientation: str = "landsca
                 continue
 
             # Ghép các clip lại - LOG THỨ TỰ
-            yield log_event(f"  === GHEP {len(clips)} CLIP THEO THU TU ===")
             clip_paths = []
+
+            # Chèn intro clip vào đầu
+            if intro_clip_path:
+                clip_paths.append(intro_clip_path)
+                yield log_event(f"  === GHEP INTRO + {len(clips)} CLIP THEO THU TU ===")
+                yield log_event(f"    0. [INTRO]: {intro_clip_path}")
+            else:
+                yield log_event(f"  === GHEP {len(clips)} CLIP THEO THU TU ===")
+
             for idx, (animal_name, clip_path) in enumerate(clips):
                 yield log_event(f"    {idx+1}. {animal_name}: {clip_path}")
                 clip_paths.append(clip_path)

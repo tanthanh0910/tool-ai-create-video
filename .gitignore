@@ -16,8 +16,8 @@ Thumbs.db
 output/
 temp/
 *.mp4
-# *.mp3
-# *.wav
+*.mp3
+*.wav
 
 # IDE
 .idea/
