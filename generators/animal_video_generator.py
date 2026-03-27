@@ -459,19 +459,37 @@ def get_animal_info(animal_name: str) -> tuple[str, str]:
     """
     name_lower = animal_name.lower().strip()
     
-    # 1. Tìm chính xác trong database
+    # 1. Tìm CHÍNH XÁC trong database (ưu tiên cao nhất)
     if name_lower in ANIMAL_DATABASE:
         search_term, display_name = ANIMAL_DATABASE[name_lower]
-        print(f"      [SEARCH] ✓ '{animal_name}' -> search: '{search_term}', display: '{display_name}'")
+        print(f"      [SEARCH] ✓ EXACT: '{animal_name}' -> search: '{search_term}', display: '{display_name}'")
         return search_term, display_name
     
-    # 2. Tìm partial match
+    # 2. Tìm theo tên tiếng Việt (display_name)
     for key, (search_term, display_name) in ANIMAL_DATABASE.items():
-        if key in name_lower or name_lower in key:
-            print(f"      [SEARCH] ~ '{animal_name}' -> search: '{search_term}', display: '{display_name}' (partial: {key})")
+        if display_name.lower() == name_lower:
+            print(f"      [SEARCH] ✓ VN_NAME: '{animal_name}' -> search: '{search_term}', display: '{display_name}' (key: {key})")
             return search_term, display_name
     
-    # 3. Nếu tên đã là tiếng Anh (không có dấu), dùng trực tiếp để search
+    # 3. Tìm partial match - CHỈ khi key là một phần của tên HOẶC tên là một phần của key
+    # KHÔNG match khi chỉ có 1 từ chung (như "fish")
+    for key, (search_term, display_name) in ANIMAL_DATABASE.items():
+        # Chỉ match nếu key hoàn toàn nằm trong tên (với word boundary)
+        # hoặc tên hoàn toàn nằm trong key
+        key_words = set(key.split())
+        name_words = set(name_lower.split())
+        
+        # Match nếu tất cả các từ trong key đều có trong name
+        if key_words and key_words.issubset(name_words):
+            print(f"      [SEARCH] ~ PARTIAL (key in name): '{animal_name}' -> search: '{search_term}', display: '{display_name}' (key: {key})")
+            return search_term, display_name
+        
+        # Match nếu tất cả các từ trong name đều có trong key
+        if name_words and name_words.issubset(key_words):
+            print(f"      [SEARCH] ~ PARTIAL (name in key): '{animal_name}' -> search: '{search_term}', display: '{display_name}' (key: {key})")
+            return search_term, display_name
+    
+    # 4. Nếu tên đã là tiếng Anh (không có dấu), dùng trực tiếp để search
     import unicodedata
     normalized = unicodedata.normalize('NFD', animal_name)
     is_ascii = all(ord(c) < 128 for c in normalized if c.isalpha())
@@ -482,7 +500,7 @@ def get_animal_info(animal_name: str) -> tuple[str, str]:
         print(f"      [SEARCH] ? '{animal_name}' -> search: '{search_term}' (English, not in DB)")
         return search_term, animal_name
     
-    # 4. Tên tiếng Việt không có trong DB - cảnh báo
+    # 5. Tên tiếng Việt không có trong DB - cảnh báo
     print(f"      [SEARCH] ⚠️ '{animal_name}' KHÔNG có trong database!")
     print(f"      [SEARCH] ⚠️ Hãy dùng tên tiếng Anh để search chính xác!")
     return "animal wildlife", animal_name
@@ -500,14 +518,14 @@ async def search_pexels_videos(query: str, per_page: int = 5, orientation: str =
         print("  [!] Cần PEXELS_API_KEY trong .env")
         return []
     
-    # Thêm từ khóa để loại bỏ người/xe cộ, chỉ lấy hình động vật
-    # Pexels không hỗ trợ exclude, nên thêm "animal only" hoặc "no people" vào query
-    enhanced_query = f"{query} animal close up -people -human -person"
-    print(f"      [Pexels] Enhanced query: '{enhanced_query}'")
+    # Giữ query đơn giản để search chính xác hơn
+    # Chỉ thêm "animal" nếu query chưa có, không thêm quá nhiều từ khóa
+    clean_query = query.strip()
+    print(f"      [Pexels] Search query: '{clean_query}'")
     
     url = "https://api.pexels.com/videos/search"
     headers = {"Authorization": PEXELS_API_KEY}
-    params = {"query": enhanced_query, "per_page": per_page * 2, "orientation": orientation}  # Lấy nhiều hơn để lọc
+    params = {"query": clean_query, "per_page": per_page, "orientation": orientation}
     
     # Xác định tỷ lệ aspect ratio cần lọc
     if orientation == "portrait":
@@ -573,13 +591,13 @@ async def search_pexels_images(query: str, per_page: int = 5, orientation: str =
         print("  [!] Cần PEXELS_API_KEY trong .env")
         return []
     
-    # Thêm từ khóa để loại bỏ người/xe cộ, chỉ lấy hình động vật
-    enhanced_query = f"{query} animal close up -people -human -person"
-    print(f"      [Pexels] Enhanced query: '{enhanced_query}'")
+    # Giữ query đơn giản để search chính xác hơn
+    clean_query = query.strip()
+    print(f"      [Pexels] Search query: '{clean_query}'")
     
     url = "https://api.pexels.com/v1/search"
     headers = {"Authorization": PEXELS_API_KEY}
-    params = {"query": enhanced_query, "per_page": per_page * 2, "orientation": orientation}  # Lấy nhiều hơn để lọc
+    params = {"query": clean_query, "per_page": per_page, "orientation": orientation}
     
     # Xác định tỷ lệ aspect ratio cần lọc
     if orientation == "portrait":
