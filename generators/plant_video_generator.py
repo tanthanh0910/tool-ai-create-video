@@ -110,6 +110,27 @@ from generators.animal_video_generator import (
 # Không strip từ khóa "flower", "plant", "tree", v.v.
 # ============================================================
 
+# Những loại cây/quả HIẾM trên Pexels (chủ yếu châu Á)
+# Video thường sai → ưu tiên dùng ảnh hoặc search term thay thế
+RARE_PLANTS_ON_PEXELS = {
+    "longan": "longan fruit exotic",
+    "lychee": "lychee fruit red", 
+    "rambutan": "rambutan fruit red",
+    "starfruit": "star fruit carambola",
+    "soursop": "soursop fruit green",
+    "custard apple": "sugar apple fruit",
+    "tamarind": "tamarind fruit pod",
+    "jackfruit": "jackfruit large fruit",
+    "durian": "durian fruit spike",
+    "mangosteen": "mangosteen fruit purple",
+    "persimmon": "persimmon fruit orange",
+    "mulberry": "mulberry berry fruit",
+    "guava": "guava fruit tropical",
+    "papaya": "papaya fruit orange",
+    "passion fruit": "passion fruit purple",
+    "dragon fruit": "dragon fruit pink",
+}
+
 def _extract_plant_core_name(query: str) -> str:
     """Trích xuất tên thực vật chính từ query (1-2 từ đầu, bỏ filler)."""
     filler_words = {
@@ -170,7 +191,7 @@ def _validate_plant_videos(videos: list[dict], plant_core: str) -> list[dict]:
     """
     Lọc video có liên quan đến tên thực vật.
     - Bỏ video có người (people, person, woman, man, etc.)
-    - Bỏ video có tên cây/quả khác trong URL
+    - Bỏ video có tên cây/quả khác trong URL (chỉ những tên rõ ràng)
     
     Ví dụ: plant_core="starfruit" → skip video có URL chứa "banana", "orange", "lemon"
     """
@@ -180,43 +201,42 @@ def _validate_plant_videos(videos: list[dict], plant_core: str) -> list[dict]:
     # Từ khóa liên quan đến người - SKIP những video này
     people_keywords = {
         "person", "people", "woman", "man", "girl", "boy", "child", "children",
-        "kid", "kids", "human", "hand", "hands", "finger", "fingers",
-        "farmer", "gardener", "worker", "tourist", "couple", "family",
+        "human", "farmer", "gardener", "worker", "tourist", "couple", "family",
         "holding", "picking", "harvesting", "eating", "cooking",
     }
     
-    # Danh sách các loại cây/quả phổ biến - nếu URL chứa tên khác thì skip
+    # Danh sách các loại cây/quả phổ biến - CHỈ những tên dài, rõ ràng để tránh match nhầm
+    # Không dùng: "corn" (match "acorn"), "pea" (match "peach"), "fig" (match "figure")
     common_plants = {
-        # Cây ăn quả nhiệt đới
+        # Cây ăn quả (tên dài, ít nhầm)
         "banana", "papaya", "mango", "coconut", "pineapple", "durian", "jackfruit",
-        "guava", "papaya", "avocado", "passion", "dragon", "rambutan", "lychee",
-        "longan", "starfruit", "mangosteen", "soursop", "custard",
-        # Cây ăn quả ôn đới  
-        "orange", "lemon", "lime", "apple", "grape", "cherry", "peach", "pear",
-        "plum", "fig", "olive", "apricot", "pomegranate", "persimmon", "kiwi",
-        "strawberry", "blueberry", "raspberry", "watermelon", "melon",
-        # Rau củ & cây nông nghiệp
-        "tomato", "pepper", "chili", "corn", "wheat", "rice", "potato", "carrot",
-        "cabbage", "lettuce", "onion", "garlic", "ginger", "cassava", "sugarcane",
-        "soybean", "soya", "bean", "pea", "peanut", "cotton", "tea", "coffee",
-        # Hoa
-        "rose", "tulip", "daisy", "lily", "orchid", "lotus", "sunflower",
-        "lavender", "jasmine", "hibiscus", "chrysanthemum", "magnolia",
-        # Cây gỗ/rừng
-        "pine", "oak", "maple", "willow", "birch", "cedar", "fir", "bamboo",
-        "palm", "eucalyptus", "acacia", "teak", "mahogany", "redwood",
+        "avocado", "rambutan", "lychee", "longan", "starfruit", "mangosteen",
+        "orange", "lemon", "apple", "grape", "cherry", "peach", "pomegranate",
+        "strawberry", "blueberry", "raspberry", "watermelon", "persimmon",
+        # Rau củ (tên dài, ít nhầm)
+        "tomato", "potato", "carrot", "cabbage", "lettuce", "onion", "garlic",
+        "ginger", "cassava", "sugarcane", "soybean", "cotton", "coffee",
+        "cucumber", "eggplant", "pumpkin",
+        # Hoa (tên dài, ít nhầm)
+        "tulip", "orchid", "lotus", "sunflower", "lavender", "jasmine",
+        "hibiscus", "chrysanthemum", "magnolia", "dandelion",
+        # Cây gỗ (tên dài, ít nhầm)
+        "bamboo", "eucalyptus", "mahogany", "redwood",
     }
     
     plant_words = set(plant_core.lower().split())
     
-    validated = []
+    exact_matches = []
+    neutral_matches = []
+    
     for v in videos:
         url = v.get("page_url", v.get("url", "")).lower()
         
         # 1. Kiểm tra URL có chứa từ khóa về NGƯỜI không → SKIP
         found_people = False
         for people_word in people_keywords:
-            if people_word in url:
+            # Chỉ match whole word để tránh nhầm (dùng dấu - hoặc / hoặc đầu/cuối)
+            if f"-{people_word}-" in url or f"/{people_word}-" in url or f"-{people_word}/" in url:
                 print(f"        [VALIDATE] SKIP id={v.get('id')} - URL contains PEOPLE keyword '{people_word}'")
                 found_people = True
                 break
@@ -225,9 +245,10 @@ def _validate_plant_videos(videos: list[dict], plant_core: str) -> list[dict]:
             continue
         
         # 2. Kiểm tra URL có chứa tên cây/quả KHÁC không → SKIP
+        # Chỉ check những tên dài (>=5 ký tự) để tránh false positive
         found_wrong_plant = False
         for other_plant in common_plants:
-            if other_plant in url and other_plant not in plant_words:
+            if len(other_plant) >= 5 and other_plant in url and other_plant not in plant_words:
                 print(f"        [VALIDATE] SKIP id={v.get('id')} - URL contains '{other_plant}' (want '{plant_core}')")
                 found_wrong_plant = True
                 break
@@ -235,15 +256,24 @@ def _validate_plant_videos(videos: list[dict], plant_core: str) -> list[dict]:
         if found_wrong_plant:
             continue
         
-        # 3. Ưu tiên video có URL chứa đúng tên thực vật
-        if any(pw in url for pw in plant_words):
+        # 3. Phân loại: EXACT MATCH vs NEUTRAL
+        if any(pw in url for pw in plant_words if len(pw) >= 4):
             print(f"        [VALIDATE] ✓ EXACT MATCH id={v.get('id')} - URL contains '{plant_core}'")
-            validated.insert(0, v)  # Ưu tiên lên đầu
+            exact_matches.append(v)
         else:
             print(f"        [VALIDATE] ~ NEUTRAL id={v.get('id')} - URL neutral")
-            validated.append(v)
+            neutral_matches.append(v)
     
-    return validated
+    # Ưu tiên EXACT MATCH, nhưng chấp nhận NEUTRAL nếu không có EXACT
+    if exact_matches:
+        print(f"        [VALIDATE] Returning {len(exact_matches)} EXACT matches (ignoring {len(neutral_matches)} neutral)")
+        return exact_matches
+    elif neutral_matches:
+        # Trả về tất cả NEUTRAL (không giới hạn) để có đủ video chọn
+        print(f"        [VALIDATE] No exact matches, returning {len(neutral_matches)} NEUTRAL")
+        return neutral_matches
+    else:
+        return []
 
 
 # def _build_plant_search_queries(query: str) -> list[str]:
@@ -367,7 +397,6 @@ PLANT_DATABASE = {
     "daffodil": ("daffodil narcissus flower yellow", "hoa thủy tiên"),
     "bluebell": ("bluebell flower forest blue", "hoa chuông xanh"),
     "crocus": ("crocus flower spring purple", "hoa nghệ tây"),
-    "amaryllis": ("amaryllis flower red bloom", "hoa loa kèn đỏ"),
     "zinnia": ("zinnia flower colorful garden", "hoa cúc zinnia"),
     "dahlia": ("dahlia flower colorful petals", "hoa thược dược"),
     "aster": ("aster flower purple daisy", "hoa cúc tím"),
@@ -383,21 +412,18 @@ PLANT_DATABASE = {
     "pine tree": ("pine tree conifer forest", "cây thông"),
     "oak tree": ("oak tree large branches", "cây sồi"),
     "maple tree": ("maple tree autumn leaves red", "cây phong"),
-    "palm tree": ("palm tree coconut beach", "cây cọ"),
+    "palm tree": ("Majestic Palm Tree Against Clear Blue Sky", "cây cọ"),
     "willow tree": ("weeping willow tree lake", "cây liễu"),
-    "baobab": ("baobab tree africa savanna", "cây bao báp"),
     "redwood": ("redwood sequoia giant tree", "cây gỗ đỏ"),
     "banyan tree": ("banyan tree ficus aerial roots", "cây đa"),
-    "coconut tree": ("coconut palm tree tropical", "cây dừa"),
     "cherrytree": ("cherry tree blossom spring", "cây anh đào"),
     "bonsai": ("bonsai tree miniature japanese", "cây bonsai"),
     "mangrove": ("mangrove tree swamp roots", "cây đước"),
     "birch tree": ("birch tree white bark forest", "cây bạch dương"),
     "eucalyptus": ("eucalyptus tree gum koala", "cây bạch đàn"),
     "cedar tree": ("cedar tree conifer tall", "cây tuyết tùng"),
-    "cypress tree": ("cypress tree tall evergreen", "cây bách"),
     "fig tree": ("fig tree ficus fruit", "cây sung"),
-    "acacia tree": ("acacia tree africa savanna", "cây keo"),
+    "acacia tree": ("Lush Green Tree in Sunny Outdoor Landscape", "cây keo"),
     "teak tree": ("teak tree timber hardwood", "cây tếch"),
 
     # ===== RAU CỦ & CÂY NÔNG NGHIỆP (25 loài) =====
@@ -412,10 +438,9 @@ PLANT_DATABASE = {
     "moss": ("moss green texture forest", "rêu"),
     "seaweed": ("seaweed kelp ocean underwater", "rong biển"),
     "aloe vera": ("aloe vera succulent gel", "nha đam"),
-    "ginseng": ("ginseng panax root herb", "nhân sâm"),
     "sugarcane": ("sugarcane plantation sugar crop", "mía"),
     "cassava": ("cassava tapioca manioc root", "sắn"),
-    "sweet potato": ("sweet potato ipomoea batatas", "khoai lang"),
+    "sweet potato": ("sweet potato tuber root", "khoai lang"),
     "potato": ("potato solanum plant tuber", "khoai tây"),
     "tomato": ("tomato plant red fruit vine", "cà chua"),
     "chili pepper": ("chili pepper capsicum red hot", "ớt"),
@@ -428,42 +453,37 @@ PLANT_DATABASE = {
     "cotton": ("cotton plant boll fiber", "bông vải"),
 
     # ===== CÂY ĂN QUẢ (36 loài) =====
-    "apple tree": ("apple tree orchard fruit", "cây táo"),
-    "orange tree": ("orange citrus tree fruit", "cây cam"),
-    "mango tree": ("mango tree mangifera fruit", "cây xoài"),
-    "banana tree": ("banana plant musa leaves", "cây chuối"),
-    "grape vine": ("grape vineyard vitis wine", "cây nho"),
-    "strawberry": ("strawberry plant fragaria fruit", "dâu tây"),
-    "watermelon": ("watermelon citrullus field", "dưa hấu"),
-    "pineapple": ("pineapple ananas plant fruit", "dứa"),
-    "durian": ("durian fruit tree spiky", "sầu riêng"),
-    "jackfruit": ("jackfruit large fruit tree tropical", "mít"),
-    "dragon fruit": ("dragon fruit pitaya pink cactus", "thanh long"),
-    "lychee": ("lychee fruit red tree cluster", "vải"),
-    "pomegranate": ("pomegranate fruit red seeds", "lựu"),
-    "avocado": ("avocado fruit tree green", "bơ"),
-    "papaya": ("papaya fruit tree tropical orange", "đu đủ"),
-    "guava": ("guava fruit tree green tropical", "ổi"),
-    "passion fruit": ("passion fruit vine purple yellow", "chanh dây"),
-    "starfruit": ("starfruit carambola fruit yellow", "khế"),
-    "rambutan": ("rambutan fruit red hairy tropical", "chôm chôm"),
-    "longan": ("longan fruit tree cluster brown", "nhãn"),
-    "persimmon": ("persimmon fruit orange tree autumn", "hồng"),
-    "lemon tree": ("lemon fruit tree yellow citrus", "cây chanh"),
-    "peach tree": ("peach fruit tree pink blossom", "cây đào"),
-    "pear tree": ("pear fruit tree green orchard", "cây lê"),
-    "plum tree": ("plum fruit tree purple", "cây mận"),
-    "cherry fruit": ("cherry fruit tree red spring", "cây anh đào quả"),
-    "coconut": ("coconut palm tree tropical beach", "dừa"),
-    "kiwi fruit": ("kiwi fruit vine green fuzzy", "cây kiwi"),
-    "blueberry": ("blueberry bush fruit blue berry", "việt quất"),
-    "raspberry": ("raspberry bush fruit red berry", "mâm xôi"),
-    "lime tree": ("lime fruit tree green citrus", "cây chanh xanh"),
-    "apricot": ("apricot fruit tree orange blossom", "cây mơ"),
-    "mulberry": ("mulberry fruit tree dark purple", "cây dâu tằm"),
+    "apple tree": ("apple tree orchard", "táo"),
+    "orange tree": ("Close-Up of Lush Orange Tree in Orchard", "cam"),
+    "mango tree": ("mango tree fruit", "xoài"),
+    "banana tree": ("banana tree plant", "chuối"),
+    "grape vine": ("grape vineyard", "nho"),
+    "strawberry": ("strawberry fruit plant", "dâu tây"),
+    "watermelon": ("watermelon field", "dưa hấu"),
+    "jackfruit": ("jackfruit tree", "mít"),
+    "dragon fruit": ("dragon fruit pitaya", "thanh long"),
+    # "lychee": ("lychee fruit asian", "vải"),
+    "pomegranate": ("pomegranate fruit", "lựu"),
+    "avocado": ("avocado tree fruit", "bơ"),
+    "papaya": ("papaya tree fruit", "đu đủ"),
+    "guava": ("guava fruit", "ổi"),
+    "passion fruit": ("passion fruit maracuja", "chanh dây"),
+    "starfruit": ("starfruit carambola", "khế"),
+    # "longan": ("longan fruit asian", "nhãn"),
+    "persimmon": ("persimmon fruit", "hồng"),
+    "lemon tree": ("lemon tree citrus", "chanh"),
+    "peach tree": ("peach tree fruit", "đào"),
+    # "pear tree": ("pear fruit tree", "lê"),
+    "plum tree": ("plum tree fruit", "mận"),
+    "cherry fruit": ("cherry tree fruit", "anh đào quả"),
+    "coconut": ("coconut palm", "dừa"),
+    "kiwi fruit": ("kiwi fruit", "kiwi"),
+    "blueberry": ("blueberry bush", "việt quất"),
+    "raspberry": ("raspberry bush", "mâm xôi"),
+    "lime tree": ("lime tree citrus", "chanh xanh"),
+    "mulberry": ("mulberry tree fruit", "dâu tằm"),
     "custard apple": ("custard apple sugar apple fruit green", "na"),
     "tamarind": ("tamarind fruit tree pod brown", "me"),
-    "soursop": ("soursop fruit green spiky tropical", "mãng cầu xiêm"),
 
     # ===== CÂY HOA KIỂNG (18 loài) =====
     "succulent": ("succulent plant echeveria sedum", "sen đá"),
@@ -477,11 +497,9 @@ PLANT_DATABASE = {
     "pothos": ("pothos epipremnum devils ivy", "cây trầu bà leo"),
     "spider plant": ("spider plant chlorophytum hanging", "cây dây nhện"),
     "jade plant": ("jade plant crassula money tree", "cây ngọc bích"),
-    "anthurium": ("anthurium flamingo flower red heart", "hoa hồng môn"),
     "philodendron": ("philodendron tropical houseplant", "cây ráy"),
     "calathea": ("calathea prayer plant striped leaves", "cây đuôi công"),
     "areca palm": ("areca palm dypsis lutescens", "cây cau cảnh"),
-    "dracaena": ("dracaena dragon tree houseplant", "cây phát tài"),
     "zz plant": ("zz plant zamioculcas zamiifolia", "cây kim tiền"),
     "croton": ("croton codiaeum colorful leaves", "cây cô tòng"),
 
@@ -502,6 +520,106 @@ PLANT_DATABASE = {
     "cabbage": ("cabbage brassica vegetable green", "bắp cải"),
     "lettuce": ("lettuce lactuca salad green", "rau xà lách"),
     "eggplant": ("eggplant aubergine solanum purple", "cà tím"),
+
+    # ===== PHỔ BIẾN CHÂU ÂU & DỄ TÌM TRÊN PEXELS =====
+    # --- Hoa phổ biến châu Âu ---
+    "wildflower": ("wildflower meadow field colorful", "hoa dại"),
+    "heather": ("heather calluna purple field", "hoa thạch nam"),
+    "clover": ("clover flower field green", "cỏ ba lá"),
+    "buttercup": ("buttercup ranunculus yellow flower", "hoa mao lương"),
+    "foxglove": ("foxglove digitalis purple flower", "hoa mao địa hoàng"),
+    "primrose": ("primrose primula yellow spring", "hoa anh thảo"),
+    "cornflower": ("cornflower blue centaurea field", "hoa thanh cúc"),
+    "edelweiss": ("edelweiss alpine white flower", "hoa nhung tuyết"),
+    "forget me not": ("forget me not myosotis blue", "hoa lưu ly"),
+    "snowdrop": ("snowdrop galanthus white spring", "hoa giọt tuyết"),
+    "lily of the valley": ("lily of the valley convallaria white", "hoa linh lan"),
+    "red clover": ("red clover trifolium pink flower", "cỏ ba lá đỏ"),
+    "sweet pea": ("sweet pea lathyrus colorful flower", "hoa đậu thơm"),
+    "freesia": ("freesia flower colorful fragrant", "hoa lan nam phi"),
+    "anemone": ("anemone flower windflower colorful", "hoa cỏ chân ngỗng"),
+    "ranunculus": ("ranunculus flower persian buttercup", "hoa mao lương ba tư"),
+    "delphinium": ("delphinium larkspur blue purple", "hoa phi yến"),
+    "hollyhock": ("hollyhock alcea tall flower garden", "hoa mãn đình hồng"),
+    "sweet william": ("sweet william dianthus colorful flower", "hoa william ngọt"),
+    "stock flower": ("stock flower matthiola fragrant", "hoa tử la lan"),
+    
+    # --- Cây & rừng châu Âu ---
+    "olive tree": ("olive tree mediterranean olea", "cây ô liu"),
+    "apple blossom": ("apple blossom spring white pink", "hoa táo"),
+    "hawthorn": ("hawthorn crataegus white flower", "cây táo gai"),
+    "holly": ("holly ilex red berries christmas", "cây nhựa ruồi"),
+    "ivy": ("ivy hedera green vine climbing", "cây thường xuân"),
+    "mistletoe": ("mistletoe viscum christmas plant", "cây tầm gửi"),
+    "boxwood": ("boxwood buxus hedge garden", "cây hoàng dương"),
+    "yew tree": ("yew tree taxus evergreen", "cây thủy tùng"),
+    "chestnut tree": ("chestnut tree castanea leaves", "cây hạt dẻ"),
+    "beech tree": ("beech tree fagus forest leaves", "cây sồi dẻ"),
+    "ash tree": ("ash tree fraxinus forest", "cây tần bì"),
+    "alder tree": ("alder tree alnus wetland", "cây tổng quán sủi"),
+    "juniper": ("juniper juniperus berries evergreen", "cây bách xù"),
+    "hazel tree": ("hazel corylus nuts tree", "cây phỉ"),
+    
+    # --- Hoa & cây địa trung hải ---
+    "bougainvillea pink": ("bougainvillea pink mediterranean", "hoa giấy hồng"),
+    "oleander white": ("oleander nerium white mediterranean", "hoa trúc đào trắng"),
+    "agave": ("agave succulent mediterranean blue", "cây thùa"),
+    "rosemary": ("rosemary rosmarinus herb purple flower", "cây hương thảo"),
+    "thyme": ("thyme thymus herb purple flower", "cây cỏ xạ hương"),
+    "sage": ("sage salvia purple herb flower", "cây xô thơm"),
+    "oregano": ("oregano origanum herb flower", "cây kinh giới"),
+    "basil": ("basil ocimum herb green", "cây húng quế"),
+    "mint": ("mint mentha herb green fresh", "cây bạc hà"),
+    "parsley": ("parsley petroselinum herb green", "cây mùi tây"),
+    "fennel": ("fennel foeniculum yellow flower herb", "cây thì là"),
+    "dill": ("dill anethum yellow flower herb", "cây thì là"),
+    "chamomile": ("chamomile matricaria white flower field", "hoa cúc la mã"),
+    
+    # --- Hoa vườn phổ biến (nhiều trên Pexels) ---
+    "petunia": ("petunia flower colorful garden hanging", "hoa dạ yến thảo"),
+    "pansy": ("pansy viola flower colorful garden", "hoa bướm"),
+    "impatiens": ("impatiens flower colorful shade garden", "hoa ngọc thạch"),
+    "salvia": ("salvia sage red flower garden", "hoa xô đỏ"),
+    "verbena": ("verbena flower purple cluster", "hoa cỏ roi ngựa"),
+    "gazania": ("gazania flower orange yellow daisy", "hoa cúc gazania"),
+    "gerbera": ("gerbera daisy flower colorful", "hoa đồng tiền"),
+    "gladiolus": ("gladiolus flower spike colorful", "hoa lay ơn"),
+    "hyacinth": ("hyacinth flower fragrant spring colorful", "hoa dạ lan hương"),
+    "muscari": ("muscari grape hyacinth blue spring", "hoa tiên ông"),
+    "allium": ("allium ornamental purple ball flower", "hoa hành tây tím"),
+    "clematis": ("clematis flower vine climbing purple", "hoa ông lão"),
+    "honeysuckle": ("honeysuckle lonicera flower fragrant", "hoa kim ngân"),
+    "lilac": ("lilac syringa purple fragrant spring", "hoa tử đinh hương"),
+    
+    # --- Cây cảnh phổ biến (indoor plants - rất nhiều trên Pexels) --- 
+    "dieffenbachia": ("dieffenbachia dumb cane tropical indoor", "cây vạn niên thanh"),
+    "aglaonema": ("aglaonema chinese evergreen indoor", "cây bạc hà"),
+    "palm indoor": ("indoor palm plant tropical", "cây cọ trong nhà"),
+    "boston fern": ("boston fern nephrolepis hanging", "dương xỉ boston"),
+    "bird nest fern": ("bird nest fern asplenium tropical", "dương xỉ tổ chim"),
+    "string of pearls": ("string of pearls senecio succulent", "cây chuỗi ngọc"),
+    "english ivy": ("english ivy hedera helix indoor", "cây thường xuân anh"),
+    "golden pothos": ("golden pothos epipremnum aureum", "cây trầu bà vàng"),
+    "money plant": ("money plant pilea peperomioides", "cây đồng tiền"),
+    "swiss cheese plant": ("swiss cheese plant monstera adansonii", "cây trầu bà lỗ"),
+    "chinese money plant": ("chinese money plant pilea peperomioides", "cây tiền xu"),
+    
+    # --- Cây hoa ngoài trời dễ tìm ---
+    "rhododendron": ("rhododendron bush flower pink purple", "hoa đỗ quyên"),
+    "camellia bush": ("camellia bush japonica flower pink", "hoa trà mi"),
+    "forsythia": ("forsythia yellow spring bush", "cây mai vàng"),
+    "spirea": ("spirea spiraea white flower bush", "cây tú cầu"),
+    "viburnum": ("viburnum snowball bush white flower", "cây hoa cầu tuyết"),
+    "weigela": ("weigela bush pink flower garden", "hoa nhài tây"),
+    "butterfly bush": ("butterfly bush buddleia purple", "cây bướm"),
+    
+    # --- Cây nông nghiệp châu Âu ---
+    "barley": ("barley field grain crop golden", "lúa mạch"),
+    "oat": ("oat avena field grain crop", "yến mạch"),
+    "rapeseed": ("rapeseed canola yellow field", "cây cải dầu"),
+    "sunflower field": ("sunflower field yellow landscape", "cánh đồng hướng dương"),
+    "vineyard": ("vineyard grape wine field", "vườn nho"),
+    "flax": ("flax linum blue flower field", "cây lanh"),
 
     # ===== TIẾNG VIỆT (tương thích ngược) =====
     "hoa hồng": ("rose flower bloom", "hoa hồng"),
@@ -576,43 +694,36 @@ async def create_plant_clip(
 
     print(f"")
     print(f"    ╔══════════════════════════════════════════════════")
-    print(f"    ║ [{clip_index}] PLANT: {plant_name}")
-    print(f"    ║ Search term: '{search_term}'")
-    print(f"    ║ Display (TTS): '{display_name}'")
+    print(f"    ║ PLANT CLIP #{clip_index}: {plant_name}")
+    print(f"    ║ Search term: {search_term}")
+    print(f"    ║ Display name: {display_name}")
     print(f"    ╚══════════════════════════════════════════════════")
 
     clip_dir = os.path.join(work_dir, f"clip_{clip_index:03d}_{safe_name}")
     os.makedirs(clip_dir, exist_ok=True)
 
     # ========== BƯỚC 1: Tạo audio đọc tên ==========
-    text = f"Đây là ... {display_name}."
-    print(f"      [STEP 1] TTS: text='{text}'")
     narration_path = os.path.join(clip_dir, f"narration_{safe_name}.mp3")
-
+    narration_text = display_name
+    
+    print(f"      [STEP 1] Generate TTS for: '{narration_text}'")
     try:
-        communicate = edge_tts.Communicate(
-            text=text,
-            voice=Config.TTS_VOICE,
-            rate="-20%",
-        )
+        communicate = edge_tts.Communicate(narration_text, "vi-VN-HoaiMyNeural")
         await communicate.save(narration_path)
-    except Exception as e:
-        print(f"      [TTS] Error: {e}")
-        narration_path = None
-
-    audio_duration = 0
-    if narration_path and os.path.exists(narration_path) and os.path.getsize(narration_path) > 100:
         audio_duration = get_video_duration(narration_path)
-        # Thêm silence padding
-        # Clip đầu tiên: thêm nhiều silence trước để tránh chồng lên intro
-        silence_before = 1.0 if is_first_clip else 0.3
+        
+        # Thêm silence trước và sau narration để người xem có thời gian xem ảnh/video
+        silence_before = 1.0 if is_first_clip else 0.5
+        silence_after = 4.0  # Tăng thời gian im lặng sau khi đọc tên
         padded_path = os.path.join(clip_dir, f"narration_{safe_name}_padded.mp3")
-        padded = add_silence_to_audio(narration_path, padded_path, silence_before=silence_before, silence_after=0.3)
+        padded = add_silence_to_audio(narration_path, padded_path, silence_before=silence_before, silence_after=silence_after)
         if padded:
             narration_path = padded_path
             audio_duration = get_video_duration(narration_path)
-        print(f"      [TTS] OK: {audio_duration:.1f}s (silence_before={silence_before}s)")
-    else:
+        print(f"      [TTS] OK: {audio_duration:.1f}s (silence_before={silence_before}s, silence_after={silence_after}s)")
+    except Exception as e:
+        print(f"      [TTS] ERROR: {e}")
+        audio_duration = clip_duration
         narration_path = None
 
     target_video_duration = audio_duration if narration_path else clip_duration
@@ -623,8 +734,20 @@ async def create_plant_clip(
     media_path = None
     video_clip_path = os.path.join(clip_dir, f"video_{safe_name}.mp4")
 
+    # Kiểm tra nếu là cây hiếm trên Pexels → dùng search term thay thế
+    plant_key = plant_name.lower().strip()
+    alt_search_term = RARE_PLANTS_ON_PEXELS.get(plant_key, None)
+    if alt_search_term:
+        print(f"      [STEP 2] ⚠ '{plant_name}' is RARE on Pexels, trying alternate: '{alt_search_term}'")
+
     if use_video:
         videos = await search_pexels_videos_plant(search_term, per_page=10, orientation=orientation)
+        
+        # Nếu không có video và là cây hiếm → thử search term thay thế
+        if not videos and alt_search_term:
+            print(f"      [STEP 2] Trying alternate search: '{alt_search_term}'")
+            videos = await search_pexels_videos_plant(alt_search_term, per_page=10, orientation=orientation)
+        
         if videos:
             # video = random.choice(videos)
             unused_videos = [v for v in videos if v["id"] not in USED_VIDEO_IDS]
@@ -649,6 +772,12 @@ async def create_plant_clip(
     if not media_path:
         print(f"      [STEP 2] Fallback to IMAGE search...")
         images = await search_pexels_images(search_term, per_page=10, orientation=orientation)
+        
+        # Nếu không có ảnh và là cây hiếm → thử search term thay thế
+        if not images and alt_search_term:
+            print(f"      [STEP 2] Trying alternate image search: '{alt_search_term}'")
+            images = await search_pexels_images(alt_search_term, per_page=10, orientation=orientation)
+        
         if images:
             image = random.choice(images)
             print(f"      [STEP 2] ✓ IMAGE selected: id={image['id']}, {image.get('width','?')}x{image.get('height','?')}")

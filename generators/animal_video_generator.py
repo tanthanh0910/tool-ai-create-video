@@ -616,7 +616,9 @@ def _validate_animal_videos(videos: list[dict], animal_core: str) -> list[dict]:
     
     animal_words = set(animal_core.lower().split())
     
-    validated = []
+    exact_matches = []
+    neutral_matches = []
+    
     for v in videos:
         url = v.get("page_url", v.get("url", "")).lower()
         
@@ -642,15 +644,25 @@ def _validate_animal_videos(videos: list[dict], animal_core: str) -> list[dict]:
         if found_wrong_animal:
             continue
         
-        # 3. Ưu tiên video có URL chứa đúng tên động vật
+        # 3. Phân loại: EXACT MATCH vs NEUTRAL
         if any(aw in url for aw in animal_words):
             print(f"        [VALIDATE] ✓ EXACT MATCH id={v.get('id')} - URL contains '{animal_core}'")
-            validated.insert(0, v)  # Ưu tiên lên đầu
+            exact_matches.append(v)
         else:
             print(f"        [VALIDATE] ~ NEUTRAL id={v.get('id')} - URL neutral")
-            validated.append(v)
+            neutral_matches.append(v)
     
-    return validated
+    # Ưu tiên EXACT MATCH, chỉ dùng NEUTRAL nếu không có EXACT
+    if exact_matches:
+        print(f"        [VALIDATE] Returning {len(exact_matches)} EXACT matches (ignoring {len(neutral_matches)} neutral)")
+        return exact_matches
+    elif neutral_matches:
+        # Chỉ trả về tối đa 2 video neutral để giảm rủi ro sai
+        limited = neutral_matches[:2]
+        print(f"        [VALIDATE] No exact matches, returning {len(limited)} NEUTRAL (risky)")
+        return limited
+    else:
+        return []
 
 
 async def _pexels_image_search_single(query: str, per_page: int, orientation: str,
@@ -1619,10 +1631,10 @@ async def create_animal_clip(
     if audio_result:
         print(f"      [AUDIO] Created: {audio_path}")
     
-    # Thêm im lặng trước và sau audio để có nhịp
+    # Thêm im lặng trước và sau audio để người xem có thời gian xem hình ảnh/video
     if audio_result:
         audio_with_silence = os.path.join(clip_dir, f"narration_{safe_name}_padded.mp3")
-        padded = add_silence_to_audio(audio_path, audio_with_silence, silence_before=0.3, silence_after=0.3)
+        padded = add_silence_to_audio(audio_path, audio_with_silence, silence_before=0.5, silence_after=4.0)
         if padded:
             audio_path = audio_with_silence
             audio_duration = get_video_duration(audio_path)
