@@ -146,7 +146,7 @@ ANIMAL_DATABASE = {
     "cobra": ("cobra snake hood spread", "rắn hổ mang"),
     "python": ("python snake coiled", "trăn"),
     "anaconda": ("anaconda snake water", "trăn anaconda"),
-    "viper": ("viper snake venomous close up", "rắn lục"),
+    "viper": ("viper snake venomous close up", "rắn"),
     "crocodile": ("crocodile river close up", "cá sấu"),
     "alligator": ("alligator swamp close up", "cá sấu mỹ"),
     "lizard": ("lizard reptile close up", "thằn lằn"),
@@ -241,7 +241,6 @@ ANIMAL_DATABASE = {
     "sea urchin": ("sea urchin underwater close up", "nhím biển"),
 
     #Động vật Bắc Cực (giữ loài phổ biến)
-    "arctic wolf": ("arctic wolf snow wild", "sói bắc cực"),
     "snowy owl": ("snowy owl bird white", "cú tuyết"),
     "beluga whale": ("beluga whale underwater white", "cá voi trắng"),
 
@@ -286,11 +285,10 @@ ANIMAL_DATABASE = {
     "meerkat": ("meerkat standing close up wild", "cầy meerkat"),
     "mongoose": ("mongoose close up wild", "cầy mangut"),
     "hyena": ("hyena wild safari close up", "linh cẩu"),
-    "jackal": ("jackal wild close up", "chó rừng"),
+    "jackal": ("Footage of a Golden Jackal Lying on the Ground", "chó rừng"),
     "wild boar": ("wild boar forest close up", "lợn rừng"),
     "bison": ("bison wild close up", "bò rừng bison"),
     "yak": ("yak mountain close up", "bò tây tạng"),
-    "musk ox": ("musk ox arctic close up", "bò xạ hương"),
     "tapir": ("tapir wild close up", "heo vòi"),
     "anteater": ("anteater wild close up", "thú ăn kiến"),
     "aardvark": ("aardvark wild close up", "lợn đất"),
@@ -1166,11 +1164,12 @@ async def generate_animal_narration(animal_name: str, output_path: str, search_t
         sound_path = None
         narration_duration = get_video_duration(narration_path)
         
-        # Tính thời gian còn lại cho tiếng kêu
-        # Video clip thường ~5-8 giây, narration ~2-3 giây
-        # Dành ~0.5s silence + còn lại cho tiếng kêu
+        # Tính thời gian cho tiếng kêu động vật
+        # Với silence_after = 4.0s, clip tổng ~5-6 giây
+        # Tiếng kêu sẽ chạy trong phần silence sau khi đọc tên
+        # Cho tiếng kêu dài gần bằng thời lượng clip (trừ narration)
         silence_duration = 0.5
-        max_sound_duration = max(1.0, 5.0 - narration_duration - silence_duration)  # Tối thiểu 1 giây
+        max_sound_duration = 4.5  # Tiếng động vật dài ~4.5 giây để lấp đầy thời gian xem
         
         print(f"      [SOUND] Narration: {narration_duration:.1f}s, Max sound: {max_sound_duration:.1f}s")
         
