@@ -527,6 +527,280 @@ def api_generate_plant_video(prompt: str, num: int, orientation: str = "landscap
     return Response(generate_stream(), mimetype="text/event-stream")
 
 
+# ---------- API: Generate Shorts (Video Ngắn 9:16, không intro, không đọc tên) ----------
+
+@app.route("/api/generate-shorts", methods=["POST"])
+def api_generate_shorts():
+    """API tạo video ngắn/shorts - 9:16, không intro, không đọc tên."""
+    data = request.json
+    prompt = data.get("prompt", "")
+    num = data.get("num", 1)
+    items_per_video = data.get("items_per_video", 5)
+    clip_duration = data.get("clip_duration", 6)
+    category = data.get("category", "animal")  # "animal" hoặc "plant"
+
+    # Luôn dùng portrait 9:16 cho shorts
+    video_width, video_height = 1080, 1920
+
+    if category == "plant":
+        return api_generate_plant_shorts(prompt, num, items_per_video, clip_duration, video_width, video_height)
+    else:
+        return api_generate_animal_shorts(prompt, num, items_per_video, clip_duration, video_width, video_height)
+
+
+def api_generate_animal_shorts(prompt: str, num: int, items_per_video: int, clip_duration: float, video_width: int, video_height: int):
+    """Tạo video ngắn động vật - không có intro, không đọc tên, chỉ tiếng kêu, 9:16."""
+    
+    def generate_stream():
+        yield log_event(f"📱 TAO VIDEO NGAN DONG VAT (SHORTS)")
+        yield log_event(f"📐 Kich thuoc: {video_width}x{video_height} (9:16)")
+        yield log_event(f"🔢 So dong vat moi video: {items_per_video}")
+        yield log_event(f"⏱️ Thoi luong moi clip: {clip_duration} giay")
+        yield log_event(f"🚫 KHONG CO INTRO, KHONG DOC TEN")
+        yield log_event(f"🔊 Chi co tieng keu dong vat")
+        yield progress_event(5)
+
+        if not PEXELS_API_KEY:
+            yield error_event("Thieu PEXELS_API_KEY trong file .env")
+            return
+
+        # Parse danh sách trực tiếp hoặc random
+        def parse_animal_list(text: str) -> list[str]:
+            parts = text.replace(";", ",").split(",")
+            animals = [p.strip() for p in parts if p.strip()]
+            if len(animals) >= 2 and all(len(a) < 20 for a in animals):
+                return animals
+            return []
+
+        direct_animals = parse_animal_list(prompt)
+
+        if direct_animals:
+            yield log_event(f"✓ Danh sach dong vat truc tiep: {len(direct_animals)} con")
+            scripts = [{
+                "title": f"Shorts {len(direct_animals)} dong vat",
+                "animals": direct_animals
+            }]
+        else:
+            yield log_event(f"Dang tao danh sach {num} video, moi video {items_per_video} dong vat...")
+            try:
+                scripts = generate_animal_scripts(prompt, num_videos=num, animals_per_video=items_per_video)
+            except Exception as e:
+                yield log_event(f"Loi: {e}", "warn")
+                scripts = []
+
+            if not scripts:
+                yield log_event(f"Dung danh sach mac dinh", "warn")
+                from generators.animal_video_generator import ANIMAL_CATEGORIES
+                import random
+                all_animals = []
+                for cat in ANIMAL_CATEGORIES.values():
+                    all_animals.extend(cat["animals"])
+                all_animals = list(set(all_animals))
+                random.shuffle(all_animals)
+                scripts = [{
+                    "title": f"Shorts {items_per_video} dong vat",
+                    "animals": all_animals[:items_per_video]
+                }]
+
+        yield progress_event(15)
+        os.makedirs(Config.OUTPUT_DIR, exist_ok=True)
+        if os.path.exists(Config.TEMP_DIR):
+            shutil.rmtree(Config.TEMP_DIR)
+        os.makedirs(Config.TEMP_DIR, exist_ok=True)
+
+        total = len(scripts)
+        completed_files = []
+
+        for i, script in enumerate(scripts):
+            title = script.get("title", f"Shorts {i+1}")
+            animals = script.get("animals", [])
+
+            yield log_event(f"[{i+1}/{total}] {title}")
+            yield log_event(f"  Dong vat: {', '.join(animals)}")
+
+            base_pct = 15 + (i / total) * 80
+            import time
+            work_dir = os.path.join(Config.TEMP_DIR, f"shorts_{i:03d}_{int(time.time())}")
+            os.makedirs(work_dir, exist_ok=True)
+
+            # Tạo clips - KHÔNG CÓ INTRO, KHÔNG ĐỌC TÊN
+            clips = []
+            from generators.animal_video_generator import create_animal_clip
+            for ai, animal in enumerate(animals):
+                yield log_event(f"  [{ai+1}/{len(animals)}] {animal}...")
+                clip = run_async(create_animal_clip(
+                    animal_name=animal,
+                    work_dir=work_dir,
+                    clip_index=ai,
+                    use_video=True,
+                    clip_duration=clip_duration,
+                    orientation="portrait",
+                    target_width=video_width,
+                    target_height=video_height,
+                    skip_narration=True,  # Shorts: không đọc tên, chỉ tiếng kêu
+                ))
+                if clip:
+                    clips.append((animal, clip))
+                    yield log_event(f"    ✓ {animal}", "success")
+                else:
+                    yield log_event(f"    ✗ {animal}", "error")
+                yield progress_event(base_pct + (ai + 1) / len(animals) * 40 / total)
+
+            if not clips:
+                yield log_event("  Khong tao duoc clip nao", "error")
+                continue
+
+            # Ghép clips - KHÔNG CÓ INTRO
+            clip_paths = [path for _, path in clips]
+            yield log_event(f"  === GHEP {len(clips)} CLIP (KHONG INTRO) ===")
+            for idx, (animal_name, _) in enumerate(clips):
+                yield log_event(f"    {idx+1}. {animal_name}")
+
+            safe_title = "".join(c for c in title if c.isalnum() or c in " _-").strip()
+            output_path = os.path.join(Config.OUTPUT_DIR, f"shorts_{i+1:02d}_{safe_title[:40]}.mp4")
+
+            from generators.animal_video_generator import concatenate_videos
+            result = concatenate_videos(clip_paths, output_path, video_width, video_height)
+
+            if result:
+                completed_files.append(result)
+                yield log_event(f"  ✓ Hoan thanh: {result}", "success")
+            else:
+                yield log_event(f"  Ghep video that bai", "error")
+
+            yield progress_event(base_pct + 80 / total)
+
+        yield log_event(f"  📁 Temp folder: {Config.TEMP_DIR}")
+        yield done_event(f"Hoan thanh {len(completed_files)}/{total} video shorts!", completed_files)
+
+    return Response(generate_stream(), mimetype="text/event-stream")
+
+
+def api_generate_plant_shorts(prompt: str, num: int, items_per_video: int, clip_duration: float, video_width: int, video_height: int):
+    """Tạo video ngắn thực vật - không có intro, không đọc tên, 9:16, có nhạc nền."""
+    
+    def generate_stream():
+        yield log_event(f"📱 TAO VIDEO NGAN THUC VAT (SHORTS)")
+        yield log_event(f"📐 Kich thuoc: {video_width}x{video_height} (9:16)")
+        yield log_event(f"🔢 So thuc vat moi video: {items_per_video}")
+        yield log_event(f"⏱️ Thoi luong moi clip: {clip_duration} giay")
+        yield log_event(f"🎵 Co nhac nen")
+        yield log_event(f"🚫 KHONG CO INTRO, KHONG DOC TEN")
+        yield progress_event(5)
+
+        if not PEXELS_API_KEY:
+            yield error_event("Thieu PEXELS_API_KEY trong file .env")
+            return
+
+        # Parse danh sách
+        def parse_plant_list(text: str) -> list[str]:
+            parts = text.replace(";", ",").split(",")
+            plants = [p.strip() for p in parts if p.strip()]
+            if len(plants) >= 2 and all(len(p) < 30 for p in plants):
+                return plants
+            return []
+
+        direct_plants = parse_plant_list(prompt)
+
+        if direct_plants:
+            yield log_event(f"✓ Danh sach thuc vat truc tiep: {len(direct_plants)} loai")
+            scripts = [{
+                "title": f"Shorts {len(direct_plants)} thuc vat",
+                "plants": direct_plants
+            }]
+        else:
+            yield log_event(f"Dang tao danh sach {num} video, moi video {items_per_video} thuc vat...")
+            scripts = generate_plant_scripts(prompt, num_videos=num, plants_per_video=items_per_video)
+            if not scripts:
+                yield log_event("Khong tao duoc danh sach", "error")
+                return
+
+        yield progress_event(15)
+        os.makedirs(Config.OUTPUT_DIR, exist_ok=True)
+        if os.path.exists(Config.TEMP_DIR):
+            shutil.rmtree(Config.TEMP_DIR)
+        os.makedirs(Config.TEMP_DIR, exist_ok=True)
+
+        total = len(scripts)
+        completed_files = []
+
+        for i, script in enumerate(scripts):
+            title = script.get("title", f"Shorts {i+1}")
+            plants = script.get("plants", [])
+
+            yield log_event(f"[{i+1}/{total}] {title}")
+            yield log_event(f"  Thuc vat: {', '.join(plants)}")
+
+            base_pct = 15 + (i / total) * 80
+            import time
+            work_dir = os.path.join(Config.TEMP_DIR, f"shorts_{i:03d}_{int(time.time())}")
+            os.makedirs(work_dir, exist_ok=True)
+
+            # Tạo clips - KHÔNG CÓ INTRO, KHÔNG ĐỌC TÊN
+            clips = []
+            from generators.plant_video_generator import create_plant_clip
+            for pi, plant in enumerate(plants):
+                yield log_event(f"  [{pi+1}/{len(plants)}] {plant}...")
+                clip = run_async(create_plant_clip(
+                    plant_name=plant,
+                    work_dir=work_dir,
+                    clip_index=pi,
+                    use_video=True,
+                    clip_duration=clip_duration,
+                    orientation="portrait",
+                    target_width=video_width,
+                    target_height=video_height,
+                    is_first_clip=(pi == 0),
+                    skip_narration=True,  # Shorts: không đọc tên
+                ))
+                if clip:
+                    clips.append((plant, clip))
+                    yield log_event(f"    ✓ {plant}", "success")
+                else:
+                    yield log_event(f"    ✗ {plant}", "error")
+                yield progress_event(base_pct + (pi + 1) / len(plants) * 40 / total)
+
+            if not clips:
+                yield log_event("  Khong tao duoc clip nao", "error")
+                continue
+
+            # Ghép clips - KHÔNG CÓ INTRO
+            clip_paths = [path for _, path in clips]
+            yield log_event(f"  === GHEP {len(clips)} CLIP (KHONG INTRO) ===")
+
+            safe_title = "".join(c for c in title if c.isalnum() or c in " _-").strip()
+            concat_path = os.path.join(work_dir, f"concat_{safe_title[:40]}.mp4")
+
+            from generators.animal_video_generator import concatenate_videos
+            concat_result = concatenate_videos(clip_paths, concat_path, video_width, video_height)
+
+            if not concat_result:
+                yield log_event("  Ghep video that bai", "error")
+                continue
+
+            # Thêm nhạc nền
+            yield log_event("  🎵 Dang them nhac nen...")
+            output_path = os.path.join(Config.OUTPUT_DIR, f"shorts_{i+1:02d}_{safe_title[:40]}.mp4")
+            from generators.plant_video_generator import add_background_music
+            final = add_background_music(concat_result, output_path)
+
+            if final:
+                completed_files.append(final)
+                yield log_event(f"  ✓ Hoan thanh: {final}", "success")
+            else:
+                import shutil as sh
+                sh.copy2(concat_result, output_path)
+                completed_files.append(output_path)
+                yield log_event(f"  ✓ Hoan thanh (khong nhac nen): {output_path}", "success")
+
+            yield progress_event(base_pct + 80 / total)
+
+        yield log_event(f"  📁 Temp folder: {Config.TEMP_DIR}")
+        yield done_event(f"Hoan thanh {len(completed_files)}/{total} video shorts!", completed_files)
+
+    return Response(generate_stream(), mimetype="text/event-stream")
+
+
 # ---------- Main ----------
 
 if __name__ == "__main__":

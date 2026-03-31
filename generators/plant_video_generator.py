@@ -735,7 +735,12 @@ async def create_plant_clip(
             audio_duration = clip_duration
             narration_path = None
 
-    target_video_duration = audio_duration if narration_path else clip_duration
+    # Nếu skip_narration (shorts mode), LUÔN dùng clip_duration từ người dùng
+    if skip_narration:
+        target_video_duration = clip_duration
+        print(f"      [SHORTS] Force video duration: {target_video_duration:.1f}s (user setting)")
+    else:
+        target_video_duration = audio_duration if narration_path else clip_duration
     print(f"      Target duration: {target_video_duration:.1f}s")
 
     # ========== BƯỚC 2: Tìm video/ảnh (dùng plant-specific search) ==========
@@ -852,6 +857,7 @@ def add_background_music(video_path: str, output_path: str,
     Thêm nhạc nền vào video.
     Nếu video dài hơn nhạc -> lặp lại nhạc.
     Nếu video ngắn hơn -> cắt nhạc.
+    Hỗ trợ video có hoặc không có audio track.
     """
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     music_abs = os.path.join(base_dir, music_path) if not os.path.isabs(music_path) else music_path
@@ -863,22 +869,55 @@ def add_background_music(video_path: str, output_path: str,
     video_duration = get_video_duration(video_path)
     print(f"      [BGM] Video: {video_duration:.1f}s, Music: {music_abs}")
 
-    # -stream_loop -1: lặp vô hạn nhạc nền
-    # amix: trộn narration gốc (volume giữ nguyên) + nhạc nền (volume nhỏ)
-    cmd = [
-        "ffmpeg", "-y",
-        "-i", video_path,
-        "-stream_loop", "-1", "-i", music_abs,
-        "-filter_complex",
-        f"[1:a]volume={music_volume}[bg];"
-        f"[0:a][bg]amix=inputs=2:duration=first:dropout_transition=2,volume=1.5[aout]",
-        "-map", "0:v:0", "-map", "[aout]",
-        "-c:v", "copy",
-        "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
-        "-t", str(video_duration),
-        "-movflags", "+faststart",
-        output_path,
+    # Kiểm tra video có audio track không
+    probe_cmd = [
+        "ffprobe", "-v", "quiet", "-print_format", "json",
+        "-show_streams", "-select_streams", "a", video_path,
     ]
+    probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+    has_audio = False
+    try:
+        probe_data = json.loads(probe_result.stdout)
+        has_audio = len(probe_data.get("streams", [])) > 0
+    except:
+        pass
+    
+    print(f"      [BGM] Video has audio: {has_audio}")
+
+    if has_audio:
+        # Video có audio -> mix với nhạc nền
+        # -stream_loop -1: lặp vô hạn nhạc nền
+        # amix: trộn narration gốc (volume giữ nguyên) + nhạc nền (volume nhỏ)
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", video_path,
+            "-stream_loop", "-1", "-i", music_abs,
+            "-filter_complex",
+            f"[1:a]volume={music_volume}[bg];"
+            f"[0:a][bg]amix=inputs=2:duration=first:dropout_transition=2,volume=1.5[aout]",
+            "-map", "0:v:0", "-map", "[aout]",
+            "-c:v", "copy",
+            "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+            "-t", str(video_duration),
+            "-movflags", "+faststart",
+            output_path,
+        ]
+    else:
+        # Video KHÔNG có audio (shorts mode) -> chỉ thêm nhạc nền
+        print(f"      [BGM] Video has NO audio, adding music only")
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", video_path,
+            "-stream_loop", "-1", "-i", music_abs,
+            "-filter_complex",
+            f"[1:a]volume={music_volume * 3}[aout]",  # Tăng volume vì không có audio khác
+            "-map", "0:v:0", "-map", "[aout]",
+            "-c:v", "copy",
+            "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+            "-t", str(video_duration),
+            "-movflags", "+faststart",
+            output_path,
+        ]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:

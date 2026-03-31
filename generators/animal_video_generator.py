@@ -818,11 +818,12 @@ def resize_video_for_short(input_path: str, output_path: str, target_duration: f
                            target_width: int = 1920, target_height: int = 1080) -> str | None:
     """
     Resize video về kích thước chỉ định.
+    Nếu video nguồn ngắn hơn target_duration, sẽ LOOP lại video để đạt đủ thời lượng.
     
     Args:
         input_path: Đường dẫn video nguồn
         output_path: Đường dẫn video output
-        target_duration: Thời lượng video (nếu cần cắt)
+        target_duration: Thời lượng video mong muốn (nếu video ngắn hơn sẽ loop)
         target_width: Chiều rộng đích
         target_height: Chiều cao đích
     """
@@ -844,28 +845,31 @@ def resize_video_for_short(input_path: str, output_path: str, target_duration: f
         probe_cmd = [
             "ffprobe", "-v", "quiet",
             "-print_format", "json",
-            "-show_streams",
+            "-show_streams", "-show_format",
             input_path,
         ]
         probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
         src_w, src_h = 0, 0
+        src_duration = 0
         try:
             probe_data = json.loads(probe_result.stdout)
+            # Lấy duration từ format
+            src_duration = float(probe_data.get("format", {}).get("duration", 0))
             for stream in probe_data.get("streams", []):
                 if stream.get("codec_type") == "video":
                     src_w = stream.get("width", 0)
                     src_h = stream.get("height", 0)
-                    print(f"      [INPUT] Source video: {src_w}x{src_h}")
+                    # Fallback: lấy duration từ stream nếu format không có
+                    if src_duration == 0:
+                        src_duration = float(stream.get("duration", 0))
+                    print(f"      [INPUT] Source video: {src_w}x{src_h}, duration: {src_duration:.1f}s")
                     break
         except:
             pass
         
         # Xử lý chuyển đổi orientation
-        # Luôn scale + crop để đạt đúng kích thước đích
         if src_w > 0 and src_h > 0:
             src_ratio = src_w / src_h
-            
-            # Nếu nguồn và đích khác orientation hoàn toàn, cần crop mạnh
             if (src_ratio > 1 and target_ratio < 1) or (src_ratio < 1 and target_ratio > 1):
                 print(f"      [CONVERT] Source {src_w}x{src_h} -> Target {target_w}x{target_h}")
         
@@ -885,27 +889,58 @@ def resize_video_for_short(input_path: str, output_path: str, target_duration: f
         else:
             aspect_str = "1:1"
         
-        cmd = [
-            "ffmpeg", "-y",
-            "-i", input_path,
-            "-vf", filter_complex,
-            "-aspect", aspect_str,  # Dynamic aspect ratio
-            "-r", str(Config.FPS),
-            "-c:v", "libx264",
-            "-preset", "fast",
-            "-crf", "23",
-            "-c:a", "aac",
-            "-b:a", "128k",
-            "-movflags", "+faststart",
-        ]
+        # Kiểm tra xem có cần loop video không
+        need_loop = False
+        loop_count = 0
+        if target_duration and src_duration > 0 and src_duration < target_duration:
+            # Video nguồn ngắn hơn target -> cần loop
+            loop_count = int(target_duration / src_duration) + 1
+            need_loop = True
+            print(f"      [LOOP] Video too short ({src_duration:.1f}s < {target_duration:.1f}s), will loop {loop_count} times")
         
-        if target_duration:
-            cmd.extend(["-t", str(target_duration)])
-        
-        cmd.append(output_path)
+        if need_loop:
+            # Dùng -stream_loop để lặp video
+            cmd = [
+                "ffmpeg", "-y",
+                "-stream_loop", str(loop_count),  # Loop video
+                "-i", input_path,
+                "-vf", filter_complex,
+                "-aspect", aspect_str,
+                "-r", str(Config.FPS),
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-crf", "23",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-movflags", "+faststart",
+                "-t", str(target_duration),  # Cắt đúng thời lượng sau khi loop
+                output_path,
+            ]
+        else:
+            # Video đủ dài hoặc không cần loop
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", input_path,
+                "-vf", filter_complex,
+                "-aspect", aspect_str,
+                "-r", str(Config.FPS),
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-crf", "23",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-movflags", "+faststart",
+            ]
+            
+            if target_duration:
+                cmd.extend(["-t", str(target_duration)])
+            
+            cmd.append(output_path)
         
         print(f"      [FFMPEG] Filter: {filter_complex}")
         print(f"      [FFMPEG] Aspect: {aspect_str}")
+        if need_loop:
+            print(f"      [FFMPEG] Loop: {loop_count}x, Target duration: {target_duration}s")
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode != 0:
@@ -1297,8 +1332,13 @@ def get_audio_duration(audio_path: str) -> float:
     return get_video_duration(audio_path)
 
 
-def merge_audio_to_video(video_path: str, audio_path: str, output_path: str, animal_name: str = "") -> str | None:
-    """Ghep narration (doc ten) vao video. Neu video goc co tieng keu that thi mix them."""
+def merge_audio_to_video(video_path: str, audio_path: str, output_path: str, animal_name: str = "", audio_once: bool = False) -> str | None:
+    """
+    Ghep narration (doc ten) vao video. Neu video goc co tieng keu that thi mix them.
+    
+    Args:
+        audio_once: Nếu True, audio chỉ phát 1 lần ở đầu (dùng cho shorts)
+    """
     import hashlib
 
     try:
@@ -1359,24 +1399,43 @@ def merge_audio_to_video(video_path: str, audio_path: str, output_path: str, ani
                 mix_animal_sound = False
 
         if not mix_animal_sound:
-            # Mac dinh: chi doc ten
-            # Dùng apad để pad silence, giữ nguyên volume narration
-            print(f"      [MERGE] Narration only (doc ten)")
-            cmd = [
-                "ffmpeg", "-y",
-                "-i", video_path, "-i", audio_path,
-                "-filter_complex",
-                f"[1:a]aresample=44100,apad=whole_dur={video_duration},volume=1.5[aout]",
-                "-map", "0:v:0", "-map", "[aout]",
-                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                "-video_track_timescale", "24000",
-                "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
-                "-t", str(video_duration),
-                "-avoid_negative_ts", "make_zero",
-                "-fflags", "+genpts",
-                "-movflags", "+faststart",
-                output_path,
-            ]
+            # Mac dinh: chi doc ten hoac tieng keu
+            if audio_once:
+                # Shorts mode: Audio chỉ phát 1 lần ở đầu, còn lại im lặng
+                print(f"      [MERGE] SHORTS mode: Audio once at start (no loop)")
+                cmd = [
+                    "ffmpeg", "-y",
+                    "-i", video_path, "-i", audio_path,
+                    "-filter_complex",
+                    f"[1:a]aresample=44100,apad=whole_dur={video_duration},volume=1.8[aout]",
+                    "-map", "0:v:0", "-map", "[aout]",
+                    "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                    "-video_track_timescale", "24000",
+                    "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+                    "-t", str(video_duration),
+                    "-avoid_negative_ts", "make_zero",
+                    "-fflags", "+genpts",
+                    "-movflags", "+faststart",
+                    output_path,
+                ]
+            else:
+                # Normal mode: Dùng apad để pad silence, giữ nguyên volume narration
+                print(f"      [MERGE] Narration only (doc ten)")
+                cmd = [
+                    "ffmpeg", "-y",
+                    "-i", video_path, "-i", audio_path,
+                    "-filter_complex",
+                    f"[1:a]aresample=44100,apad=whole_dur={video_duration},volume=1.5[aout]",
+                    "-map", "0:v:0", "-map", "[aout]",
+                    "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                    "-video_track_timescale", "24000",
+                    "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+                    "-t", str(video_duration),
+                    "-avoid_negative_ts", "make_zero",
+                    "-fflags", "+genpts",
+                    "-movflags", "+faststart",
+                    output_path,
+                ]
             subprocess.run(cmd, capture_output=True, text=True)
 
         if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
@@ -1698,7 +1757,12 @@ async def create_animal_clip(
                 print(f"      [AUDIO] With silence: {audio_duration:.1f}s")
     
     # Video duration = audio duration (đã có padding trong audio)
-    if audio_result:
+    # Nhưng nếu skip_narration (shorts mode), LUÔN dùng clip_duration từ người dùng
+    if skip_narration:
+        # Shorts: luôn dùng thời lượng người dùng chọn
+        target_video_duration = clip_duration
+        print(f"      [SHORTS] Force video duration: {target_video_duration:.1f}s (user setting)")
+    elif audio_result:
         target_video_duration = audio_duration
     else:
         target_video_duration = clip_duration
@@ -1774,6 +1838,7 @@ async def create_animal_clip(
     print(f"        Video file: {media_path}")
     print(f"        Audio file: {audio_path}")
     print(f"        Output file: {final_clip}")
+    print(f"        Skip narration (shorts): {skip_narration}")
     
     # Kiểm tra file tồn tại trước khi merge
     if not os.path.exists(media_path):
@@ -1783,15 +1848,11 @@ async def create_animal_clip(
         print(f"      [!] Audio file not found: {audio_path}")
         return None
     
-    result = merge_audio_to_video(media_path, audio_path, final_clip, animal_name)
+    # Shorts mode: audio_once=True để tiếng kêu chỉ phát 1 lần
+    result = merge_audio_to_video(media_path, audio_path, final_clip, animal_name, audio_once=skip_narration)
     
     if result:
         print(f"      [DONE] Clip created for {animal_name}: {result}")
-    else:
-        print(f"      [!] Merge failed, returning video without audio")
-    
-    if result:
-        print(f"      [DONE] Clip created: {result}")
     else:
         print(f"      [!] Merge failed, returning video without audio")
         result = media_path
