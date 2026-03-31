@@ -23,11 +23,12 @@
         /* Header */
         .header {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
         }
         .header h1 {
             font-size: 2.2em;
             background: linear-gradient(135deg, #00d2ff, #7b2ff7);
+            background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 8px;
@@ -35,6 +36,45 @@
         .header p {
             color: #888;
             font-size: 0.95em;
+        }
+
+        /* Tab Navigation */
+        .tab-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #2a2a3e;
+            padding-bottom: 15px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 10px 10px 0 0;
+            background: #1a1a2e;
+            color: #888;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: 1px solid #2a2a3e;
+            border-bottom: none;
+        }
+        .tab-btn:hover {
+            background: #22223a;
+            color: #ccc;
+        }
+        .tab-btn.active {
+            background: linear-gradient(135deg, #1a1a3e, #2a1a4e);
+            color: #00d2ff;
+            border-color: #7b2ff7;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
         }
 
         /* Form elements */
@@ -81,7 +121,11 @@
             background: linear-gradient(135deg, #7b2ff7, #00d2ff);
             color: white;
         }
-        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-shorts {
+            background: linear-gradient(135deg, #ff6b6b, #feca57);
+            color: white;
+        }
+        .btn-primary:hover, .btn-shorts:hover { opacity: 0.9; transform: translateY(-1px); }
         .btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
@@ -235,6 +279,26 @@
         .form-row .form-group {
             flex: 1;
         }
+        
+        /* Info box */
+        .info-box {
+            background: #1a2a3a;
+            border: 1px solid #2a4a5a;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 0.85em;
+        }
+        .info-box.shorts {
+            background: #2a1a1a;
+            border-color: #4a2a2a;
+        }
+        .info-box b {
+            color: #00d2ff;
+        }
+        .info-box.shorts b {
+            color: #ff6b6b;
+        }
     </style>
 </head>
 <body>
@@ -244,96 +308,184 @@
             <p>Tao video AI tu prompt hoac video dong vat voi hinh anh thuc</p>
         </div>
 
-        <!-- Mode Selection -->
-        <div class="form-group">
-            <label>Che do tao video</label>
-            <div style="display: flex; gap: 10px; margin-top: 8px;">
-                <button type="button" class="mode-btn active" id="mode-ai" onclick="selectMode('ai')">
-                    🎨 AI Art (HuggingFace)
-                </button>
-                <button type="button" class="mode-btn" id="mode-real" onclick="selectMode('real')">
-                    📷 Hinh/Video Thuc (Pexels)
-                </button>
-            </div>
-            <p id="mode-desc" style="color: #888; font-size: 0.85em; margin-top: 8px;">
-                Tao hinh anh bang AI - phu hop voi video truyen thuyet, phim, sang tao
-            </p>
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button type="button" class="tab-btn active" onclick="switchTab('normal')">
+                🎬 Video Thuong (co intro)
+            </button>
+            <button type="button" class="tab-btn" onclick="switchTab('shorts')">
+                📱 Video Ngan / Shorts
+            </button>
         </div>
 
-        <!-- Category Selection (only for Real mode) -->
-        <div class="form-group" id="category-group" style="display: none;">
-            <label>Danh muc</label>
-            <select id="gen-category" onchange="onCategoryChange()">
-                <option value="animal">🦁 Dong vat</option>
-                <option value="plant">🌿 Thuc vat</option>
-            </select>
-        </div>
-
-        <!-- Form -->
-        <div class="form-group">
-            <label>Chu de video</label>
-            <input type="text" id="gen-prompt"
-                   placeholder="VD: hay lam nhieu video ngan ve the gioi dong vat">
-        </div>
-
-        <div class="form-row">
+        <!-- ============== TAB 1: VIDEO THƯỜNG ============== -->
+        <div class="tab-content active" id="tab-normal">
+            <!-- Mode Selection -->
             <div class="form-group">
-                <label>So luong video</label>
-                <input type="number" id="gen-num" value="1" min="1" max="20">
+                <label>Che do tao video</label>
+                <div style="display: flex; gap: 10px; margin-top: 8px;">
+                    <button type="button" class="mode-btn active" id="mode-ai" onclick="selectMode('ai')">
+                        🎨 AI Art (HuggingFace)
+                    </button>
+                    <button type="button" class="mode-btn" id="mode-real" onclick="selectMode('real')">
+                        📷 Hinh/Video Thuc (Pexels)
+                    </button>
+                </div>
+                <p id="mode-desc" style="color: #888; font-size: 0.85em; margin-top: 8px;">
+                    Tao hinh anh bang AI - phu hop voi video truyen thuyet, phim, sang tao
+                </p>
             </div>
-            <div class="form-group">
-                <label id="items-label">So dong vat / video</label>
-                <input type="number" id="gen-animals" value="10" min="1" max="100"
-                       title="So luong dong vat/thuc vat trong moi video">
-            </div>
-            <div class="form-group">
-                <label>Ty le khung hinh</label>
-                <select id="gen-orientation">
-                    <option value="landscape">📺 Ngang 16:9 (YouTube, Desktop)</option>
-                    <option value="portrait">📱 Doc 9:16 (TikTok, Shorts, Reels)</option>
-                    <option value="square">⬜ Vuong 1:1 (Instagram)</option>
+
+            <!-- Category Selection (only for Real mode) -->
+            <div class="form-group" id="category-group" style="display: none;">
+                <label>Danh muc</label>
+                <select id="gen-category" onchange="onCategoryChange()">
+                    <option value="animal">🦁 Dong vat</option>
+                    <option value="plant">🌿 Thuc vat</option>
                 </select>
             </div>
+
+            <!-- Form -->
+            <div class="form-group">
+                <label>Chu de video</label>
+                <input type="text" id="gen-prompt"
+                       placeholder="VD: hay lam nhieu video ngan ve the gioi dong vat">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>So luong video</label>
+                    <input type="number" id="gen-num" value="1" min="1" max="20">
+                </div>
+                <div class="form-group">
+                    <label id="items-label">So dong vat / video</label>
+                    <input type="number" id="gen-animals" value="10" min="1" max="100"
+                           title="So luong dong vat/thuc vat trong moi video">
+                </div>
+                <div class="form-group">
+                    <label>Ty le khung hinh</label>
+                    <select id="gen-orientation">
+                        <option value="landscape">📺 Ngang 16:9 (YouTube, Desktop)</option>
+                        <option value="portrait">📱 Doc 9:16 (TikTok, Shorts, Reels)</option>
+                        <option value="square">⬜ Vuong 1:1 (Instagram)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Items count info -->
+            <div class="info-box">
+                <span id="animals-desc" style="color: #00d2ff;">
+                    🦁 <b>10 dong vat</b> × 8 giay/con ≈ <b>~1 phut 20 giay</b> moi video
+                </span>
+            </div>
+            
+            <!-- Orientation info -->
+            <div class="info-box" style="background: #1a1a3a; border-color: #2a2a4a;">
+                <span id="orientation-desc" style="color: #00d2ff;">
+                    📺 <b>Video ngang 1920x1080</b> - Phu hop YouTube, Facebook, may tinh
+                </span>
+            </div>
+            
+            <!-- Info box for Real mode -->
+            <div id="real-mode-info" style="display: none; background: #1a2a1a; border: 1px solid #2a4a2a; border-radius: 10px; padding: 14px; margin-bottom: 15px; color: #88cc88; font-size: 0.85em;">
+                <div id="info-animal">
+                    <b>🦁 Che do Video Dong Vat:</b><br>
+                    • Tim hinh anh/video THUC tu Pexels (mien phi)<br>
+                    • Doc ten dong vat bang giong Viet (Edge TTS)<br>
+                    • <b>Tieng keu:</b> Dat file .mp3 vao thu muc <code>sounds/</code> (vd: lion.mp3, cat.mp3)<br>
+                    <span style="color: #ffaa00;">⚠️ Can PEXELS_API_KEY trong file .env</span>
+                </div>
+                <div id="info-plant" style="display: none;">
+                    <b>🌿 Che do Video Thuc Vat:</b><br>
+                    • Tim hinh anh/video THUC tu Pexels (mien phi)<br>
+                    • Doc ten thuc vat bang giong Viet (Edge TTS)<br>
+                    • <b>Nhac nen:</b> File <code>sounds/plants/plants.mp3</code> (tu dong lap lai neu video dai hon)<br>
+                    • Khong co tieng keu, chi doc ten + nhac nen<br>
+                    <span style="color: #ffaa00;">⚠️ Can PEXELS_API_KEY trong file .env</span>
+                </div>
+            </div>
+            
+            <button class="btn btn-primary" id="btn-generate" onclick="startGenerate()">
+                Bat Dau Tao Video
+            </button>
         </div>
 
-        <!-- Items count info -->
-        <div id="animals-info" style="background: #1a2a3a; border: 1px solid #2a4a5a; border-radius: 10px; padding: 12px; margin-bottom: 15px; font-size: 0.85em;">
-            <span id="animals-desc" style="color: #00d2ff;">
-                🦁 <b>10 dong vat</b> × 8 giay/con ≈ <b>~1 phut 20 giay</b> moi video
-            </span>
-        </div>
-        
-        <!-- Orientation info -->
-        <div id="orientation-info" style="background: #1a1a3a; border: 1px solid #2a2a4a; border-radius: 10px; padding: 12px; margin-bottom: 15px; font-size: 0.85em;">
-            <span id="orientation-desc" style="color: #00d2ff;">
-                📺 <b>Video ngang 1920x1080</b> - Phu hop YouTube, Facebook, may tinh
-            </span>
-        </div>
-        
-        <!-- Info box for Real mode -->
-        <div id="real-mode-info" style="display: none; background: #1a2a1a; border: 1px solid #2a4a2a; border-radius: 10px; padding: 14px; margin-bottom: 15px; color: #88cc88; font-size: 0.85em;">
-            <div id="info-animal">
-                <b>🦁 Che do Video Dong Vat:</b><br>
-                • Tim hinh anh/video THUC tu Pexels (mien phi)<br>
-                • Doc ten dong vat bang giong Viet (Edge TTS)<br>
-                • <b>Tieng keu:</b> Dat file .mp3 vao thu muc <code>sounds/</code> (vd: lion.mp3, cat.mp3)<br>
-                <span style="color: #ffaa00;">⚠️ Can PEXELS_API_KEY trong file .env</span>
+        <!-- ============== TAB 2: VIDEO NGẮN / SHORTS ============== -->
+        <div class="tab-content" id="tab-shorts">
+            <div class="info-box shorts">
+                <b>📱 Video Ngan / Shorts (9:16)</b><br>
+                • Khong co doan intro, khong doc ten<br>
+                • Ty le doc 9:16 (1080x1920) - TikTok, YouTube Shorts, Instagram Reels<br>
+                • Dong vat: Video + Tieng keu (KHONG doc ten)<br>
+                • Thuc vat: Video + Nhac nen (KHONG doc ten)
             </div>
-            <div id="info-plant" style="display: none;">
-                <b>🌿 Che do Video Thuc Vat:</b><br>
-                • Tim hinh anh/video THUC tu Pexels (mien phi)<br>
-                • Doc ten thuc vat bang giong Viet (Edge TTS)<br>
-                • <b>Nhac nen:</b> File <code>sounds/plants/plants.mp3</code> (tu dong lap lai neu video dai hon)<br>
-                • Khong co tieng keu, chi doc ten + nhac nen<br>
-                <span style="color: #ffaa00;">⚠️ Can PEXELS_API_KEY trong file .env</span>
-            </div>
-        </div>
-        
-        <button class="btn btn-primary" id="btn-generate" onclick="startGenerate()">
-            Bat Dau Tao Video
-        </button>
 
-        <!-- Progress -->
+            <!-- Category Selection for Shorts -->
+            <div class="form-group">
+                <label>Danh muc</label>
+                <select id="shorts-category" onchange="onShortsCategoryChange()">
+                    <option value="animal">🦁 Dong vat (video + tieng keu, KHONG doc ten)</option>
+                    <option value="plant">🌿 Thuc vat (video + nhac nen, KHONG doc ten)</option>
+                </select>
+            </div>
+
+            <!-- Prompt -->
+            <div class="form-group">
+                <label>Chu de video</label>
+                <input type="text" id="shorts-prompt"
+                       placeholder="VD: su tu, ho, bao, voi, te giac">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>So luong video</label>
+                    <input type="number" id="shorts-num" value="1" min="1" max="20">
+                </div>
+                <div class="form-group">
+                    <label id="shorts-items-label">So dong vat / video</label>
+                    <input type="number" id="shorts-items" value="5" min="1" max="30"
+                           title="So luong dong vat/thuc vat trong moi video ngan">
+                </div>
+                <div class="form-group">
+                    <label>Thoi luong moi clip (giay)</label>
+                    <input type="number" id="shorts-duration" value="6" min="3" max="15"
+                           title="Thoi luong moi clip dong vat/thuc vat">
+                </div>
+            </div>
+
+            <!-- Duration estimate -->
+            <div class="info-box shorts">
+                <span id="shorts-estimate" style="color: #ff6b6b;">
+                    📱 <b>5 dong vat</b> × 6 giay = <b>~30 giay</b> moi video short
+                </span>
+            </div>
+
+            <!-- Info box for Shorts category -->
+            <div id="shorts-info" style="background: #1a2a1a; border: 1px solid #2a4a2a; border-radius: 10px; padding: 14px; margin-bottom: 15px; color: #88cc88; font-size: 0.85em;">
+                <div id="shorts-info-animal">
+                    <b>🦁 Video Dong Vat Ngan:</b><br>
+                    • Video THUC tu Pexels<br>
+                    • <b>KHONG DOC TEN</b> - chi co tieng keu dong vat<br>
+                    • Tieng keu tu file trong <code>sounds/</code> (vd: lion.mp3)<br>
+                    • Khong co intro - bat dau ngay video<br>
+                    <span style="color: #ffaa00;">⚠️ Can PEXELS_API_KEY trong file .env</span>
+                </div>
+                <div id="shorts-info-plant" style="display: none;">
+                    <b>🌿 Video Thuc Vat Ngan:</b><br>
+                    • Video/Hinh THUC tu Pexels<br>
+                    • <b>KHONG DOC TEN</b> - chi co nhac nen<br>
+                    • Nhac nen (file <code>sounds/plants/plants.mp3</code>)<br>
+                    • Khong co intro - bat dau ngay video<br>
+                    <span style="color: #ffaa00;">⚠️ Can PEXELS_API_KEY trong file .env</span>
+                </div>
+            </div>
+            
+            <button class="btn btn-shorts" id="btn-shorts" onclick="startShortsGenerate()">
+                📱 Tao Video Ngan / Shorts
+            </button>
+        </div>
+
+        <!-- Progress (shared) -->
         <div class="progress-area" id="progress-area">
             <div class="progress-bar-container">
                 <div class="progress-bar" id="progress-bar"></div>
@@ -341,7 +493,7 @@
             <div class="log-box" id="log-box"></div>
         </div>
 
-        <!-- Results -->
+        <!-- Results (shared) -->
         <div class="results" id="results">
             <h3>Ket Qua</h3>
             <div id="results-list"></div>
@@ -351,8 +503,19 @@
     <script>
         let currentMode = 'ai';
         let currentCategory = 'animal';
+        let currentTab = 'normal';
 
-        // Mode selection
+        // Tab switching
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+                btn.classList.toggle('active', (tab === 'normal' && i === 0) || (tab === 'shorts' && i === 1));
+            });
+            document.getElementById('tab-normal').classList.toggle('active', tab === 'normal');
+            document.getElementById('tab-shorts').classList.toggle('active', tab === 'shorts');
+        }
+
+        // Mode selection (for normal tab)
         function selectMode(mode) {
             currentMode = mode;
             document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
@@ -374,7 +537,7 @@
             onCategoryChange();
         }
 
-        // Category change
+        // Category change (for normal tab)
         function onCategoryChange() {
             currentCategory = document.getElementById('gen-category').value;
             const label = document.getElementById('items-label');
@@ -408,13 +571,48 @@
             document.getElementById('animals-desc').innerHTML =
                 `${icon} <b>${count} ${itemName}</b> × ${secPerItem} giay/loai ≈ <b>~${timeStr}</b> moi video`;
         }
+
+        // Shorts category change
+        function onShortsCategoryChange() {
+            const category = document.getElementById('shorts-category').value;
+            const label = document.getElementById('shorts-items-label');
+            const prompt = document.getElementById('shorts-prompt');
+            const infoAnimal = document.getElementById('shorts-info-animal');
+            const infoPlant = document.getElementById('shorts-info-plant');
+
+            if (category === 'plant') {
+                label.textContent = 'So thuc vat / video';
+                prompt.placeholder = 'VD: hoa hong, hoa sen, hoa mai, hoa dao';
+                if (infoAnimal) infoAnimal.style.display = 'none';
+                if (infoPlant) infoPlant.style.display = 'block';
+            } else {
+                label.textContent = 'So dong vat / video';
+                prompt.placeholder = 'VD: su tu, ho, bao, voi, te giac';
+                if (infoAnimal) infoAnimal.style.display = 'block';
+                if (infoPlant) infoPlant.style.display = 'none';
+            }
+            updateShortsEstimate();
+        }
+
+        function updateShortsEstimate() {
+            const count = parseInt(document.getElementById('shorts-items').value) || 5;
+            const duration = parseInt(document.getElementById('shorts-duration').value) || 6;
+            const category = document.getElementById('shorts-category').value;
+            const icon = category === 'plant' ? '🌿' : '🦁';
+            const itemName = category === 'plant' ? 'thuc vat' : 'dong vat';
+            const totalSeconds = count * duration;
+            document.getElementById('shorts-estimate').innerHTML =
+                `📱 <b>${count} ${itemName}</b> × ${duration} giay = <b>~${totalSeconds} giay</b> moi video short`;
+        }
         
-        // Orientation change handler
+        // Event listeners
         document.addEventListener('DOMContentLoaded', function() {
             const orientationSelect = document.getElementById('gen-orientation');
             const orientationDesc = document.getElementById('orientation-desc');
             const animalsInput = document.getElementById('gen-animals');
-            const animalsDesc = document.getElementById('animals-desc');
+            const shortsItems = document.getElementById('shorts-items');
+            const shortsDuration = document.getElementById('shorts-duration');
+            const shortsCategory = document.getElementById('shorts-category');
             
             // Orientation change
             orientationSelect.addEventListener('change', function() {
@@ -428,9 +626,16 @@
                 }
             });
             
-            // Items count change - dùng hàm global updateItemsInfo
+            // Items count change
             animalsInput.addEventListener('input', updateItemsInfo);
             animalsInput.addEventListener('change', updateItemsInfo);
+            
+            // Shorts items/duration change
+            shortsItems.addEventListener('input', updateShortsEstimate);
+            shortsItems.addEventListener('change', updateShortsEstimate);
+            shortsDuration.addEventListener('input', updateShortsEstimate);
+            shortsDuration.addEventListener('change', updateShortsEstimate);
+            shortsCategory.addEventListener('change', updateShortsEstimate);
         });
         
         // Logging
@@ -523,7 +728,7 @@
             }
         }
 
-        // Start Generate
+        // Start Generate (normal tab)
         async function startGenerate() {
             const prompt = document.getElementById('gen-prompt').value.trim();
             const num = parseInt(document.getElementById('gen-num').value) || 3;
@@ -543,6 +748,36 @@
 
             btn.disabled = false;
             btn.textContent = 'Bat Dau Tao Video';
+        }
+
+        // Start Generate Shorts
+        async function startShortsGenerate() {
+            const prompt = document.getElementById('shorts-prompt').value.trim();
+            const num = parseInt(document.getElementById('shorts-num').value) || 1;
+            const itemsPerVideo = parseInt(document.getElementById('shorts-items').value) || 5;
+            const clipDuration = parseInt(document.getElementById('shorts-duration').value) || 6;
+            const category = document.getElementById('shorts-category').value;
+            
+            if (!prompt) { alert('Vui long nhap chu de video!'); return; }
+
+            const btn = document.getElementById('btn-shorts');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Dang tao video ngan...';
+
+            await streamSSE('/api/generate-shorts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    prompt, 
+                    num, 
+                    items_per_video: itemsPerVideo, 
+                    clip_duration: clipDuration,
+                    category 
+                }),
+            });
+
+            btn.disabled = false;
+            btn.textContent = '📱 Tao Video Ngan / Shorts';
         }
     </script>
 </body>

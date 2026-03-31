@@ -173,7 +173,6 @@ ANIMAL_DATABASE = {
 
     # ===== ĐỘNG VẬT TRANG TRẠI =====
     "cow": ("cow grass field farm", "bò"),
-    "bull": ("bull close up farm", "bò đực"),
     "pig": ("pig farm close up", "lợn"),
     "horse": ("horse running field", "ngựa"),
     "pony": ("pony close up field", "ngựa con"),
@@ -1122,6 +1121,45 @@ async def fetch_animal_sound(search_term: str, output_path: str, max_duration: f
         return None
 
 
+async def generate_animal_sound_only(animal_name: str, output_path: str, search_term: str = "", work_dir: str = "") -> str | None:
+    """
+    Chỉ lấy tiếng kêu động vật, KHÔNG đọc tên.
+    Dùng cho video shorts.
+    
+    Args:
+        animal_name: Tên động vật (để tìm file âm thanh)
+        output_path: Đường dẫn output
+        search_term: Từ khóa search
+        work_dir: Thư mục làm việc
+    
+    Returns:
+        Đường dẫn file âm thanh hoặc None
+    """
+    print(f"      [SOUND-ONLY] Searching sound for: {animal_name}")
+    
+    try:
+        max_sound_duration = 5.0  # Tiếng động vật dài ~5 giây cho shorts
+        
+        sound_path = await fetch_animal_sound(
+            search_term or animal_name, 
+            output_path, 
+            max_duration=max_sound_duration, 
+            animal_key=animal_name
+        )
+        
+        if sound_path and os.path.exists(sound_path):
+            duration = get_video_duration(sound_path)
+            print(f"      [SOUND-ONLY] ✓ Found: {duration:.1f}s")
+            return sound_path
+        else:
+            print(f"      [SOUND-ONLY] No sound found for {animal_name}")
+            return None
+            
+    except Exception as e:
+        print(f"      [SOUND-ONLY] Error: {e}")
+        return None
+
+
 async def generate_animal_narration(animal_name: str, output_path: str, search_term: str = "", work_dir: str = "", animal_key: str = "") -> tuple[str | None, float]:
     """
     Tạo audio: đọc tên động vật + tiếng kêu (nếu có file local).
@@ -1590,10 +1628,11 @@ async def create_animal_clip(
     orientation: str = "landscape",
     target_width: int = 1920,
     target_height: int = 1080,
+    skip_narration: bool = False,
 ) -> str | None:
     """
     Tạo 1 clip về 1 con vật:
-    1. Tạo audio đọc tên TRƯỚC (để biết duration)
+    1. Tạo audio đọc tên TRƯỚC (để biết duration) - có thể bỏ qua nếu skip_narration=True
     2. Tìm video/ảnh thực từ Pexels
     3. Tạo video với duration >= audio
     4. Ghép lại
@@ -1602,6 +1641,7 @@ async def create_animal_clip(
         orientation: "landscape", "portrait", hoặc "square"
         target_width: Chiều rộng đích
         target_height: Chiều cao đích
+        skip_narration: Nếu True, không đọc tên, chỉ giữ tiếng kêu động vật
     """
     # Lấy thông tin động vật: search term (tiếng Anh) và display name (tiếng Việt)
     search_term, display_name = get_animal_info(animal_name)
@@ -1620,24 +1660,42 @@ async def create_animal_clip(
     
     print(f"      Working dir: {clip_dir}")
     
-    # ========== BƯỚC 1: Tạo audio TRƯỚC (đọc tên tiếng Việt) ==========
-    print(f"      [AUDIO] Generating narration for: {display_name}")
-    audio_path = os.path.join(clip_dir, f"narration_{safe_name}.mp3")
-    audio_result, audio_duration = await generate_animal_narration(
-        display_name, audio_path, search_term=search_term, work_dir=clip_dir, animal_key=animal_name
-    )
+    # ========== BƯỚC 1: Tạo audio ==========
+    audio_path = None
+    audio_result = None
+    audio_duration = 0
     
-    if audio_result:
-        print(f"      [AUDIO] Created: {audio_path}")
-    
-    # Thêm im lặng trước và sau audio để người xem có thời gian xem hình ảnh/video
-    if audio_result:
-        audio_with_silence = os.path.join(clip_dir, f"narration_{safe_name}_padded.mp3")
-        padded = add_silence_to_audio(audio_path, audio_with_silence, silence_before=0.5, silence_after=4.0)
-        if padded:
-            audio_path = audio_with_silence
+    if skip_narration:
+        # Chỉ lấy tiếng kêu động vật, không đọc tên
+        print(f"      [AUDIO] Skip narration, only animal sound for: {animal_name}")
+        sound_path = os.path.join(clip_dir, f"sound_{safe_name}.mp3")
+        animal_sound = await generate_animal_sound_only(
+            animal_name, sound_path, search_term=search_term, work_dir=clip_dir
+        )
+        if animal_sound:
+            audio_path = animal_sound
             audio_duration = get_video_duration(audio_path)
-            print(f"      [AUDIO] With silence: {audio_duration:.1f}s")
+            audio_result = audio_path
+            print(f"      [AUDIO] Animal sound: {audio_duration:.1f}s")
+    else:
+        # Đọc tên + tiếng kêu (như cũ)
+        print(f"      [AUDIO] Generating narration for: {display_name}")
+        audio_path = os.path.join(clip_dir, f"narration_{safe_name}.mp3")
+        audio_result, audio_duration = await generate_animal_narration(
+            display_name, audio_path, search_term=search_term, work_dir=clip_dir, animal_key=animal_name
+        )
+        
+        if audio_result:
+            print(f"      [AUDIO] Created: {audio_path}")
+        
+        # Thêm im lặng trước và sau audio để người xem có thời gian xem hình ảnh/video
+        if audio_result:
+            audio_with_silence = os.path.join(clip_dir, f"narration_{safe_name}_padded.mp3")
+            padded = add_silence_to_audio(audio_path, audio_with_silence, silence_before=0.5, silence_after=4.0)
+            if padded:
+                audio_path = audio_with_silence
+                audio_duration = get_video_duration(audio_path)
+                print(f"      [AUDIO] With silence: {audio_duration:.1f}s")
     
     # Video duration = audio duration (đã có padding trong audio)
     if audio_result:

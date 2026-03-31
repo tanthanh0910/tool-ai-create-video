@@ -677,15 +677,17 @@ async def create_plant_clip(
     target_width: int = 1920,
     target_height: int = 1080,
     is_first_clip: bool = False,
+    skip_narration: bool = False,
 ) -> str | None:
     """
     Tạo 1 clip về 1 loài thực vật:
-    1. Tạo audio đọc tên
+    1. Tạo audio đọc tên (nếu skip_narration=False)
     2. Tìm video/ảnh từ Pexels (dùng plant-specific search)
-    3. Ghép lại (KHÔNG có tiếng kêu, chỉ đọc tên)
+    3. Ghép lại (KHÔNG có tiếng kêu, chỉ đọc tên nếu có)
     
     Args:
         is_first_clip: Nếu True, thêm 1s silence trước narration để tránh chồng lên intro
+        skip_narration: Nếu True, không đọc tên (dùng cho shorts)
     """
     import edge_tts
 
@@ -697,34 +699,41 @@ async def create_plant_clip(
     print(f"    ║ PLANT CLIP #{clip_index}: {plant_name}")
     print(f"    ║ Search term: {search_term}")
     print(f"    ║ Display name: {display_name}")
+    print(f"    ║ Skip narration: {skip_narration}")
     print(f"    ╚══════════════════════════════════════════════════")
 
     clip_dir = os.path.join(work_dir, f"clip_{clip_index:03d}_{safe_name}")
     os.makedirs(clip_dir, exist_ok=True)
 
-    # ========== BƯỚC 1: Tạo audio đọc tên ==========
-    narration_path = os.path.join(clip_dir, f"narration_{safe_name}.mp3")
-    narration_text = display_name
+    # ========== BƯỚC 1: Tạo audio đọc tên (nếu không skip) ==========
+    narration_path = None
+    audio_duration = clip_duration
     
-    print(f"      [STEP 1] Generate TTS for: '{narration_text}'")
-    try:
-        communicate = edge_tts.Communicate(narration_text, "vi-VN-HoaiMyNeural")
-        await communicate.save(narration_path)
-        audio_duration = get_video_duration(narration_path)
+    if skip_narration:
+        print(f"      [STEP 1] SKIP narration (shorts mode)")
+    else:
+        narration_path = os.path.join(clip_dir, f"narration_{safe_name}.mp3")
+        narration_text = display_name
         
-        # Thêm silence trước và sau narration để người xem có thời gian xem ảnh/video
-        silence_before = 1.0 if is_first_clip else 0.5
-        silence_after = 4.0  # Tăng thời gian im lặng sau khi đọc tên
-        padded_path = os.path.join(clip_dir, f"narration_{safe_name}_padded.mp3")
-        padded = add_silence_to_audio(narration_path, padded_path, silence_before=silence_before, silence_after=silence_after)
-        if padded:
-            narration_path = padded_path
+        print(f"      [STEP 1] Generate TTS for: '{narration_text}'")
+        try:
+            communicate = edge_tts.Communicate(narration_text, "vi-VN-HoaiMyNeural")
+            await communicate.save(narration_path)
             audio_duration = get_video_duration(narration_path)
-        print(f"      [TTS] OK: {audio_duration:.1f}s (silence_before={silence_before}s, silence_after={silence_after}s)")
-    except Exception as e:
-        print(f"      [TTS] ERROR: {e}")
-        audio_duration = clip_duration
-        narration_path = None
+            
+            # Thêm silence trước và sau narration để người xem có thời gian xem ảnh/video
+            silence_before = 1.0 if is_first_clip else 0.5
+            silence_after = 4.0  # Tăng thời gian im lặng sau khi đọc tên
+            padded_path = os.path.join(clip_dir, f"narration_{safe_name}_padded.mp3")
+            padded = add_silence_to_audio(narration_path, padded_path, silence_before=silence_before, silence_after=silence_after)
+            if padded:
+                narration_path = padded_path
+                audio_duration = get_video_duration(narration_path)
+            print(f"      [TTS] OK: {audio_duration:.1f}s (silence_before={silence_before}s, silence_after={silence_after}s)")
+        except Exception as e:
+            print(f"      [TTS] ERROR: {e}")
+            audio_duration = clip_duration
+            narration_path = None
 
     target_video_duration = audio_duration if narration_path else clip_duration
     print(f"      Target duration: {target_video_duration:.1f}s")
