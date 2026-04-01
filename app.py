@@ -9,6 +9,8 @@ import asyncio
 import json
 import os
 import shutil
+import subprocess
+import uuid
 from flask import Flask, render_template, request, Response, send_file
 
 from config import Config
@@ -676,128 +678,319 @@ def api_generate_animal_shorts(prompt: str, num: int, items_per_video: int, clip
     return Response(generate_stream(), mimetype="text/event-stream")
 
 
-def api_generate_plant_shorts(prompt: str, num: int, items_per_video: int, clip_duration: float, video_width: int, video_height: int):
-    """Tạo video ngắn thực vật - không có intro, không đọc tên, 9:16, có nhạc nền."""
+# ---------- API: Custom Merge Video + Audio ----------
+
+@app.route("/api/merge", methods=["POST"])
+def api_merge():
+    """Ghép video và audio tùy chọn từ người dùng."""
+    
+    # Kiểm tra files TRƯỚC KHI tạo generator
+    if 'video' not in request.files or 'audio' not in request.files:
+        def error_stream():
+            yield error_event("Vui long chon ca video va audio!")
+        return Response(error_stream(), mimetype="text/event-stream")
+    
+    video_file = request.files['video']
+    audio_file = request.files['audio']
+    
+    # Lấy thời lượng mong muốn (nếu có)
+    target_duration = request.form.get('duration', None)
+    if target_duration:
+        try:
+            target_duration = int(target_duration)
+        except:
+            target_duration = None
+    
+    if not video_file.filename or not audio_file.filename:
+        def error_stream():
+            yield error_event("Vui long chon ca video va audio!")
+        return Response(error_stream(), mimetype="text/event-stream")
+    
+    # Lưu files TRƯỚC khi tạo generator (quan trọng!)
+    os.makedirs(Config.TEMP_DIR, exist_ok=True)
+    unique_id = uuid.uuid4().hex[:8]
+    
+    video_ext = os.path.splitext(video_file.filename)[1].lower()
+    audio_ext = os.path.splitext(audio_file.filename)[1].lower()
+    video_filename = video_file.filename
+    audio_filename = audio_file.filename
+    
+    temp_video = os.path.join(Config.TEMP_DIR, f"upload_video_{unique_id}{video_ext}")
+    temp_audio = os.path.join(Config.TEMP_DIR, f"upload_audio_{unique_id}{audio_ext}")
+    
+    # Lưu file ngay lập tức
+    try:
+        video_file.save(temp_video)
+        audio_file.save(temp_audio)
+    except Exception as e:
+        def error_stream():
+            yield error_event(f"Loi luu file: {str(e)}")
+        return Response(error_stream(), mimetype="text/event-stream")
     
     def generate_stream():
-        yield log_event(f"📱 TAO VIDEO NGAN THUC VAT (SHORTS)")
-        yield log_event(f"📐 Kich thuoc: {video_width}x{video_height} (9:16)")
-        yield log_event(f"🔢 So thuc vat moi video: {items_per_video}")
-        yield log_event(f"⏱️ Thoi luong moi clip: {clip_duration} giay")
-        yield log_event(f"🎵 Co nhac nen")
-        yield log_event(f"🚫 KHONG CO INTRO, KHONG DOC TEN")
-        yield progress_event(5)
-
-        if not PEXELS_API_KEY:
-            yield error_event("Thieu PEXELS_API_KEY trong file .env")
-            return
-
-        # Parse danh sách
-        def parse_plant_list(text: str) -> list[str]:
-            parts = text.replace(";", ",").split(",")
-            plants = [p.strip() for p in parts if p.strip()]
-            if len(plants) >= 2 and all(len(p) < 30 for p in plants):
-                return plants
-            return []
-
-        direct_plants = parse_plant_list(prompt)
-
-        if direct_plants:
-            yield log_event(f"✓ Danh sach thuc vat truc tiep: {len(direct_plants)} loai")
-            scripts = [{
-                "title": f"Shorts {len(direct_plants)} thuc vat",
-                "plants": direct_plants
-            }]
+        yield log_event("🔀 Bat dau ghep video va audio...")
+        yield progress_event(10)
+        
+        yield log_event(f"📥 Video: {video_filename} ({os.path.getsize(temp_video) / 1024 / 1024:.1f} MB)")
+        yield progress_event(20)
+        
+        yield log_event(f"📥 Audio: {audio_filename} ({os.path.getsize(temp_audio) / 1024 / 1024:.2f} MB)")
+        yield progress_event(25)
+        
+        if target_duration:
+            yield log_event(f"⏱️ Thoi luong mong muon: {target_duration} giay")
         else:
-            yield log_event(f"Dang tao danh sach {num} video, moi video {items_per_video} thuc vat...")
-            scripts = generate_plant_scripts(prompt, num_videos=num, plants_per_video=items_per_video)
-            if not scripts:
-                yield log_event("Khong tao duoc danh sach", "error")
-                return
-
-        yield progress_event(15)
+            yield log_event("⏱️ Thoi luong: Lay tu video goc")
+        yield progress_event(30)
+        
+        # Tạo output file
         os.makedirs(Config.OUTPUT_DIR, exist_ok=True)
-        if os.path.exists(Config.TEMP_DIR):
-            shutil.rmtree(Config.TEMP_DIR)
-        os.makedirs(Config.TEMP_DIR, exist_ok=True)
-
-        total = len(scripts)
-        completed_files = []
-
-        for i, script in enumerate(scripts):
-            title = script.get("title", f"Shorts {i+1}")
-            plants = script.get("plants", [])
-
-            yield log_event(f"[{i+1}/{total}] {title}")
-            yield log_event(f"  Thuc vat: {', '.join(plants)}")
-
-            base_pct = 15 + (i / total) * 80
-            import time
-            work_dir = os.path.join(Config.TEMP_DIR, f"shorts_{i:03d}_{int(time.time())}")
-            os.makedirs(work_dir, exist_ok=True)
-
-            # Tạo clips - KHÔNG CÓ INTRO, KHÔNG ĐỌC TÊN
-            clips = []
-            from generators.plant_video_generator import create_plant_clip
-            for pi, plant in enumerate(plants):
-                yield log_event(f"  [{pi+1}/{len(plants)}] {plant}...")
-                clip = run_async(create_plant_clip(
-                    plant_name=plant,
-                    work_dir=work_dir,
-                    clip_index=pi,
-                    use_video=True,
-                    clip_duration=clip_duration,
-                    orientation="portrait",
-                    target_width=video_width,
-                    target_height=video_height,
-                    is_first_clip=(pi == 0),
-                    skip_narration=True,  # Shorts: không đọc tên
-                ))
-                if clip:
-                    clips.append((plant, clip))
-                    yield log_event(f"    ✓ {plant}", "success")
+        safe_video_name = "".join(c for c in video_filename.rsplit('.', 1)[0] if c.isalnum() or c in " _-").strip()
+        output_path = os.path.join(Config.OUTPUT_DIR, f"merged_{safe_video_name[:40]}_{unique_id}.mp4")
+        
+        try:
+            # Kiểm tra FFmpeg có sẵn không
+            ffmpeg_check = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True)
+            if ffmpeg_check.returncode != 0:
+                yield error_event("FFmpeg chua duoc cai dat! Vui long cai FFmpeg truoc.")
+                if os.path.exists(temp_video):
+                    os.remove(temp_video)
+                if os.path.exists(temp_audio):
+                    os.remove(temp_audio)
+                return
+            
+            yield log_event("✓ FFmpeg da san sang", "success")
+            yield progress_event(35)
+            
+            # Lấy thời lượng video gốc
+            probe_cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', temp_video]
+            probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+            video_duration = float(probe_result.stdout.strip()) if probe_result.returncode == 0 else None
+            
+            if video_duration:
+                yield log_event(f"📹 Thoi luong video goc: {video_duration:.1f} giay")
+            
+            yield progress_event(40)
+            
+            # Xác định thời lượng cuối cùng
+            final_duration = target_duration if target_duration else video_duration
+            
+            # Nếu có target_duration, cần xử lý video (lặp lại hoặc cắt)
+            processed_video = temp_video
+            if target_duration and video_duration:
+                yield log_event(f"🎬 Dang xu ly video cho {target_duration} giay...")
+                yield progress_event(45)
+                
+                processed_video = os.path.join(Config.TEMP_DIR, f"processed_video_{unique_id}.mp4")
+                
+                if video_duration >= target_duration:
+                    # Video dài hơn -> cắt bớt
+                    yield log_event(f"✂️ Cat video tu {video_duration:.1f}s xuong {target_duration}s")
+                    trim_cmd = [
+                        'ffmpeg', '-y', '-i', temp_video,
+                        '-t', str(target_duration),
+                        '-c', 'copy',
+                        processed_video
+                    ]
+                    subprocess.run(trim_cmd, capture_output=True, text=True, timeout=300)
                 else:
-                    yield log_event(f"    ✗ {plant}", "error")
-                yield progress_event(base_pct + (pi + 1) / len(plants) * 40 / total)
-
-            if not clips:
-                yield log_event("  Khong tao duoc clip nao", "error")
-                continue
-
-            # Ghép clips - KHÔNG CÓ INTRO
-            clip_paths = [path for _, path in clips]
-            yield log_event(f"  === GHEP {len(clips)} CLIP (KHONG INTRO) ===")
-
-            safe_title = "".join(c for c in title if c.isalnum() or c in " _-").strip()
-            concat_path = os.path.join(work_dir, f"concat_{safe_title[:40]}.mp4")
-
-            from generators.animal_video_generator import concatenate_videos
-            concat_result = concatenate_videos(clip_paths, concat_path, video_width, video_height)
-
-            if not concat_result:
-                yield log_event("  Ghep video that bai", "error")
-                continue
-
-            # Thêm nhạc nền
-            yield log_event("  🎵 Dang them nhac nen...")
-            output_path = os.path.join(Config.OUTPUT_DIR, f"shorts_{i+1:02d}_{safe_title[:40]}.mp4")
-            from generators.plant_video_generator import add_background_music
-            final = add_background_music(concat_result, output_path)
-
-            if final:
-                completed_files.append(final)
-                yield log_event(f"  ✓ Hoan thanh: {final}", "success")
+                    # Video ngắn hơn -> lặp lại
+                    loops_needed = int(target_duration / video_duration) + 1
+                    yield log_event(f"🔁 Lap video {loops_needed} lan (video goc {video_duration:.1f}s)")
+                    
+                    # Tạo file concat list
+                    concat_list = os.path.join(Config.TEMP_DIR, f"concat_list_{unique_id}.txt")
+                    with open(concat_list, 'w') as f:
+                        for _ in range(loops_needed):
+                            f.write(f"file '{os.path.abspath(temp_video)}'\n")
+                    
+                    # Concat và cắt đúng thời lượng
+                    loop_cmd = [
+                        'ffmpeg', '-y', '-f', 'concat', '-safe', '0',
+                        '-i', concat_list,
+                        '-t', str(target_duration),
+                        '-c', 'copy',
+                        processed_video
+                    ]
+                    subprocess.run(loop_cmd, capture_output=True, text=True, timeout=300)
+                    
+                    # Xóa file concat list
+                    if os.path.exists(concat_list):
+                        os.remove(concat_list)
+                
+                if not os.path.exists(processed_video):
+                    processed_video = temp_video
+                    yield log_event("⚠️ Khong the xu ly video, dung video goc", "warn")
+                else:
+                    yield log_event("✓ Da xu ly video", "success")
+            
+            yield progress_event(55)
+            yield log_event(f"🎬 Dang ghep video va audio...")
+            yield log_event(f"📁 Output: {output_path}")
+            
+            # Sử dụng ffmpeg để merge video + audio
+            yield log_event("⏳ Dang xu ly... (co the mat vai phut)")
+            yield progress_event(60)
+            
+            # Nếu có target_duration: video giữ đúng thời lượng, audio chỉ phát 1 lần
+            # Nếu không có: dùng -shortest (kết thúc khi track ngắn nhất kết thúc)
+            if target_duration:
+                # Có target_duration -> video đúng thời lượng, audio phát 1 lần rồi im
+                cmd = [
+                    'ffmpeg', '-y',
+                    '-i', processed_video,
+                    '-i', temp_audio,
+                    '-filter_complex', f'[1:a]apad=whole_dur={target_duration}[a]',
+                    '-map', '0:v',
+                    '-map', '[a]',
+                    '-c:v', 'copy',
+                    '-c:a', 'aac',
+                    '-t', str(target_duration),
+                    output_path
+                ]
             else:
-                import shutil as sh
-                sh.copy2(concat_result, output_path)
-                completed_files.append(output_path)
-                yield log_event(f"  ✓ Hoan thanh (khong nhac nen): {output_path}", "success")
-
-            yield progress_event(base_pct + 80 / total)
-
-        yield log_event(f"  📁 Temp folder: {Config.TEMP_DIR}")
-        yield done_event(f"Hoan thanh {len(completed_files)}/{total} video shorts!", completed_files)
-
+                # Không có target_duration -> dùng -shortest
+                cmd = [
+                    'ffmpeg', '-y',
+                    '-i', processed_video,
+                    '-i', temp_audio,
+                    '-map', '0:v',
+                    '-map', '1:a',
+                    '-c:v', 'copy',
+                    '-c:a', 'aac',
+                    '-shortest',
+                    output_path
+                ]
+            
+            yield log_event(f"📋 Thoi luong output: {target_duration if target_duration else 'theo video/audio'} giay")
+            yield progress_event(65)
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            
+            if result.returncode != 0:
+                yield log_event(f"⚠️ Copy codec that bai, thu re-encode...", "warn")
+                yield log_event(f"Chi tiet: {result.stderr[:300]}", "warn")
+                
+                # Thử lại với re-encode video
+                yield log_event("🔄 Thu lai voi libx264 (cham hon)...")
+                yield progress_event(70)
+                
+                if target_duration:
+                    cmd_reencode = [
+                        'ffmpeg', '-y',
+                        '-i', processed_video,
+                        '-i', temp_audio,
+                        '-filter_complex', f'[1:a]apad=whole_dur={target_duration}[a]',
+                        '-map', '0:v',
+                        '-map', '[a]',
+                        '-c:v', 'libx264',
+                        '-preset', 'fast',
+                        '-c:a', 'aac',
+                        '-t', str(target_duration),
+                        output_path
+                    ]
+                else:
+                    cmd_reencode = [
+                        'ffmpeg', '-y',
+                        '-i', processed_video,
+                        '-i', temp_audio,
+                        '-map', '0:v',
+                        '-map', '1:a',
+                        '-c:v', 'libx264',
+                        '-preset', 'fast',
+                        '-c:a', 'aac',
+                        '-shortest',
+                        output_path
+                    ]
+                result = subprocess.run(cmd_reencode, capture_output=True, text=True, timeout=600)
+                
+                if result.returncode != 0:
+                    yield error_event(f"❌ Khong the ghep video!")
+                    yield log_event(f"FFmpeg error: {result.stderr[:500]}", "error")
+                    # Cleanup
+                    if os.path.exists(temp_video):
+                        os.remove(temp_video)
+                    if os.path.exists(temp_audio):
+                        os.remove(temp_audio)
+                    if processed_video != temp_video and os.path.exists(processed_video):
+                        os.remove(processed_video)
+                    return
+            
+            yield log_event("✓ FFmpeg hoan thanh", "success")
+            yield progress_event(85)
+            
+            # Kiểm tra output
+            if not os.path.exists(output_path):
+                yield error_event("❌ File output khong ton tai!")
+                if os.path.exists(temp_video):
+                    os.remove(temp_video)
+                if os.path.exists(temp_audio):
+                    os.remove(temp_audio)
+                if processed_video != temp_video and os.path.exists(processed_video):
+                    os.remove(processed_video)
+                return
+            
+            output_size = os.path.getsize(output_path)
+            if output_size < 1000:
+                yield error_event(f"❌ File output qua nho ({output_size} bytes)!")
+                if os.path.exists(temp_video):
+                    os.remove(temp_video)
+                if os.path.exists(temp_audio):
+                    os.remove(temp_audio)
+                if processed_video != temp_video and os.path.exists(processed_video):
+                    os.remove(processed_video)
+                return
+            
+            yield log_event(f"✓ Output: {output_size / 1024 / 1024:.1f} MB", "success")
+            yield progress_event(90)
+            
+            # Cleanup uploaded files
+            yield log_event("🗑️ Xoa file upload tam...")
+            if os.path.exists(temp_video):
+                os.remove(temp_video)
+                yield log_event("  ✓ Xoa video upload", "info")
+            if os.path.exists(temp_audio):
+                os.remove(temp_audio)
+                yield log_event("  ✓ Xoa audio upload", "info")
+            if processed_video != temp_video and os.path.exists(processed_video):
+                os.remove(processed_video)
+                yield log_event("  ✓ Xoa video da xu ly", "info")
+            
+            yield progress_event(100)
+            yield log_event("🎉 HOAN THANH!", "success")
+            yield done_event("Ghep video va audio thanh cong!", [output_path])
+            
+        except subprocess.TimeoutExpired:
+            yield error_event("⏰ Qua thoi gian xu ly (5 phut)!")
+            yield log_event("Video qua dai hoac may tinh qua cham.", "warn")
+            # Cleanup
+            if os.path.exists(temp_video):
+                os.remove(temp_video)
+            if os.path.exists(temp_audio):
+                os.remove(temp_audio)
+            if 'processed_video' in dir() and processed_video != temp_video and os.path.exists(processed_video):
+                os.remove(processed_video)
+        except FileNotFoundError:
+            yield error_event("❌ FFmpeg khong tim thay! Vui long cai dat FFmpeg.")
+            yield log_event("Huong dan: brew install ffmpeg (macOS) hoac apt install ffmpeg (Linux)", "warn")
+            if os.path.exists(temp_video):
+                os.remove(temp_video)
+            if os.path.exists(temp_audio):
+                os.remove(temp_audio)
+            if 'processed_video' in dir() and processed_video != temp_video and os.path.exists(processed_video):
+                os.remove(processed_video)
+        except Exception as e:
+            yield error_event(f"❌ Loi: {str(e)}")
+            import traceback
+            yield log_event(f"Chi tiet: {traceback.format_exc()[:500]}", "error")
+            # Cleanup
+            if os.path.exists(temp_video):
+                os.remove(temp_video)
+            if os.path.exists(temp_audio):
+                os.remove(temp_audio)
+            if 'processed_video' in dir() and processed_video != temp_video and os.path.exists(processed_video):
+                os.remove(processed_video)
+    
     return Response(generate_stream(), mimetype="text/event-stream")
 
 

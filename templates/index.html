@@ -299,6 +299,41 @@
         .info-box.shorts b {
             color: #ff6b6b;
         }
+        
+        /* File input styling */
+        input[type="file"] {
+            width: 100%;
+            padding: 14px 16px;
+            background: #1a1a2e;
+            border: 1px solid #2a2a3e;
+            border-radius: 10px;
+            color: #e0e0e0;
+            font-size: 1em;
+            cursor: pointer;
+            transition: border 0.3s;
+        }
+        input[type="file"]:hover {
+            border-color: #7b2ff7;
+        }
+        input[type="file"]::file-selector-button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            background: linear-gradient(135deg, #7b2ff7, #00d2ff);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            margin-right: 12px;
+            transition: opacity 0.3s;
+        }
+        input[type="file"]::file-selector-button:hover {
+            opacity: 0.9;
+        }
+        .file-name {
+            margin-top: 8px;
+            font-size: 0.85em;
+            color: #00d2ff;
+        }
     </style>
 </head>
 <body>
@@ -311,10 +346,13 @@
         <!-- Tab Navigation -->
         <div class="tab-nav">
             <button type="button" class="tab-btn active" onclick="switchTab('normal')">
-                🎬 Video Thuong (co intro)
+                🎬 Video Thuong
             </button>
             <button type="button" class="tab-btn" onclick="switchTab('shorts')">
-                📱 Video Ngan / Shorts
+                📱 Video Shorts
+            </button>
+            <button type="button" class="tab-btn" onclick="switchTab('merge')">
+                🔀 Ghep Video + Audio
             </button>
         </div>
 
@@ -485,6 +523,45 @@
             </button>
         </div>
 
+        <!-- ============== TAB 3: CUSTOM MERGE ============== -->
+        <div class="tab-content" id="tab-merge">
+            <!-- Merge Info -->
+            <div class="info-box">
+                <b>🔀 Ghep Video + Audio</b><br>
+                • Chon video va audio tu may tinh<br>
+                • Video: MP4 | Audio: MP3/WAV/M4A<br>
+                • Neu nhap thoi luong: video se lap lai/cat, audio phat 1 lan
+            </div>
+
+            <!-- Video File Input -->
+            <div class="form-group">
+                <label>Chon video (MP4)</label>
+                <input type="file" id="video-file" accept=".mp4" onchange="updateFileName('video')">
+                <div id="video-file-name" class="file-name"></div>
+            </div>
+
+            <!-- Audio File Input -->
+            <div class="form-group">
+                <label>Chon audio (MP3/WAV/M4A)</label>
+                <input type="file" id="audio-file" accept=".mp3, .wav, .m4a" onchange="updateFileName('audio')">
+                <div id="audio-file-name" class="file-name"></div>
+            </div>
+
+            <!-- Duration Input -->
+            <div class="form-group">
+                <label>Thoi luong mong muon (giay) - de trong = lay thoi luong video goc</label>
+                <input type="number" id="merge-duration" placeholder="VD: 30" min="1" max="600">
+                <div style="margin-top: 5px; font-size: 0.8em; color: #888;">
+                    💡 Neu nhap thoi luong: video se duoc cat/lap lai cho du, audio chi phat 1 lan
+                </div>
+            </div>
+
+            <!-- Merge Button -->
+            <button class="btn btn-primary" id="btn-merge" onclick="startMerge()">
+                🔀 Ghep Video Va Audio
+            </button>
+        </div>
+
         <!-- Progress (shared) -->
         <div class="progress-area" id="progress-area">
             <div class="progress-bar-container">
@@ -509,10 +586,11 @@
         function switchTab(tab) {
             currentTab = tab;
             document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-                btn.classList.toggle('active', (tab === 'normal' && i === 0) || (tab === 'shorts' && i === 1));
+                btn.classList.toggle('active', (tab === 'normal' && i === 0) || (tab === 'shorts' && i === 1) || (tab === 'merge' && i === 2));
             });
             document.getElementById('tab-normal').classList.toggle('active', tab === 'normal');
             document.getElementById('tab-shorts').classList.toggle('active', tab === 'shorts');
+            document.getElementById('tab-merge').classList.toggle('active', tab === 'merge');
         }
 
         // Mode selection (for normal tab)
@@ -778,6 +856,50 @@
 
             btn.disabled = false;
             btn.textContent = '📱 Tao Video Ngan / Shorts';
+        }
+
+        // Update file name display
+        function updateFileName(type) {
+            const fileInput = type === 'video' ? document.getElementById('video-file') : document.getElementById('audio-file');
+            const fileNameDiv = type === 'video' ? document.getElementById('video-file-name') : document.getElementById('audio-file-name');
+            const file = fileInput.files[0];
+            if (file) {
+                const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                fileNameDiv.textContent = `✓ ${file.name} (${sizeMB} MB)`;
+            } else {
+                fileNameDiv.textContent = '';
+            }
+        }
+
+        // Start Merge
+        async function startMerge() {
+            const videoFile = document.getElementById('video-file').files[0];
+            const audioFile = document.getElementById('audio-file').files[0];
+            const duration = document.getElementById('merge-duration').value;
+            
+            if (!videoFile || !audioFile) {
+                alert('Vui long chon ca video va audio de ghep!');
+                return;
+            }
+
+            const btn = document.getElementById('btn-merge');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Dang ghep video va audio...';
+
+            const formData = new FormData();
+            formData.append('video', videoFile);
+            formData.append('audio', audioFile);
+            if (duration) {
+                formData.append('duration', duration);
+            }
+
+            await streamSSE('/api/merge', {
+                method: 'POST',
+                body: formData,
+            });
+
+            btn.disabled = false;
+            btn.textContent = '🔀 Ghep Video Va Audio';
         }
     </script>
 </body>
