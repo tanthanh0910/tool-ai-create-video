@@ -700,6 +700,10 @@ def api_merge():
             target_duration = int(target_duration)
         except:
             target_duration = None
+
+    # Lấy effects
+    effects_str = request.form.get('effects', '')
+    effects = [e.strip() for e in effects_str.split(',') if e.strip()] if effects_str else []
     
     if not video_file.filename or not audio_file.filename:
         def error_stream():
@@ -740,7 +744,7 @@ def api_merge():
         if target_duration:
             yield log_event(f"⏱️ Thoi luong mong muon: {target_duration} giay")
         else:
-            yield log_event("⏱️ Thoi luong: Lay tu video goc")
+            yield log_event("⏱️ Thoi luong: Lay tu video goc (audio se loop neu ngan hon)")
         yield progress_event(30)
         
         # Tạo output file
@@ -772,8 +776,16 @@ def api_merge():
             
             yield progress_event(40)
             
-            # Xác định thời lượng cuối cùng
+            # Xác định thời lượng cuối cùng (ưu tiên: target_duration > video_duration)
             final_duration = target_duration if target_duration else video_duration
+
+            # Lấy thời lượng audio
+            probe_audio_cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', temp_audio]
+            probe_audio_result = subprocess.run(probe_audio_cmd, capture_output=True, text=True)
+            audio_duration = float(probe_audio_result.stdout.strip()) if probe_audio_result.returncode == 0 else None
+
+            if audio_duration:
+                yield log_event(f"🎵 Thoi luong audio goc: {audio_duration:.1f} giay")
             
             # Nếu có target_duration, cần xử lý video (lặp lại hoặc cắt)
             processed_video = temp_video
@@ -825,81 +837,213 @@ def api_merge():
                     yield log_event("✓ Da xu ly video", "success")
             
             yield progress_event(55)
+
+            # Probe duration THỰC của video đã xử lý (tránh freeze frame cuối)
+            probe_actual_cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                                '-of', 'default=noprint_wrappers=1:nokey=1', processed_video]
+            probe_actual_result = subprocess.run(probe_actual_cmd, capture_output=True, text=True)
+            actual_video_duration = float(probe_actual_result.stdout.strip()) if probe_actual_result.returncode == 0 else None
+
+            if actual_video_duration:
+                if final_duration and abs(actual_video_duration - final_duration) > 0.1:
+                    yield log_event(f"📏 Video thuc te: {actual_video_duration:.2f}s (yeu cau: {final_duration}s) -> dung thoi luong thuc", "info")
+                final_duration = actual_video_duration
+
             yield log_event(f"🎬 Dang ghep video va audio...")
             yield log_event(f"📁 Output: {output_path}")
-            
+
             # Sử dụng ffmpeg để merge video + audio
             yield log_event("⏳ Dang xu ly... (co the mat vai phut)")
             yield progress_event(60)
-            
-            # Nếu có target_duration: video giữ đúng thời lượng, audio chỉ phát 1 lần
-            # Nếu không có: dùng -shortest (kết thúc khi track ngắn nhất kết thúc)
-            if target_duration:
-                # Có target_duration -> video đúng thời lượng, audio phát 1 lần rồi im
-                cmd = [
-                    'ffmpeg', '-y',
-                    '-i', processed_video,
-                    '-i', temp_audio,
-                    '-filter_complex', f'[1:a]apad=whole_dur={target_duration}[a]',
+
+            # Build video filter chain dựa trên effects được chọn
+            has_effects = len(effects) > 0
+            video_filters = []
+            audio_filters = []
+
+            if has_effects:
+                yield log_event(f"🎨 Ap dung hieu ung: {', '.join(effects)}")
+
+            # Lấy video width/height để tính toán filter
+            if has_effects:
+                probe_size_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+                                  '-show_entries', 'stream=width,height',
+                                  '-of', 'csv=s=x:p=0', processed_video]
+                probe_size = subprocess.run(probe_size_cmd, capture_output=True, text=True)
+                try:
+                    vid_w, vid_h = probe_size.stdout.strip().split('x')
+                    vid_w, vid_h = int(vid_w), int(vid_h)
+                except:
+                    vid_w, vid_h = 1920, 1080
+
+            if 'mirror' in effects:
+                video_filters.append('hflip')
+
+            if 'color' in effects:
+                # Tăng saturation, contrast nhẹ, brightness nhẹ
+                video_filters.append('eq=saturation=1.3:contrast=1.1:brightness=0.05')
+
+            if 'zoom' in effects:
+                # Ken Burns effect - zoom in chậm từ 100% -> 110% trong suốt video
+                video_filters.append(
+                    f"scale={int(vid_w*1.1)}:{int(vid_h*1.1)},"
+                    f"zoompan=z='min(zoom+0.0002,1.1)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={vid_w}x{vid_h}:fps=30"
+                )
+
+            if 'vignette' in effects:
+                video_filters.append('vignette=PI/4')
+
+            if 'speed' in effects:
+                # Tăng tốc nhẹ 1.05x - đủ để khác bản gốc nhưng không nhận ra
+                video_filters.append('setpts=PTS/1.05')
+                audio_filters.append('atempo=1.05')
+
+            # Fade in/out (thêm cuối cùng)
+            use_fade = 'fade' in effects
+            actual_duration = target_duration if target_duration else video_duration
+            if use_fade and actual_duration:
+                fade_in_dur = min(2, actual_duration * 0.1)  # fade in 2s hoặc 10% video
+                fade_out_start = actual_duration - min(2, actual_duration * 0.1)
+                fade_out_dur = min(2, actual_duration * 0.1)
+                video_filters.append(f'fade=t=in:st=0:d={fade_in_dur:.1f}')
+                video_filters.append(f'fade=t=out:st={fade_out_start:.1f}:d={fade_out_dur:.1f}')
+                audio_filters.append(f'afade=t=in:st=0:d={fade_in_dur:.1f}')
+                audio_filters.append(f'afade=t=out:st={fade_out_start:.1f}:d={fade_out_dur:.1f}')
+
+            # Build ffmpeg command
+            vf_str = ','.join(video_filters) if video_filters else None
+
+            # Xác định có cần loop audio không
+            # Luôn lấy video duration làm gốc: audio sẽ loop lại nếu ngắn hơn
+            need_audio_loop = False
+            if final_duration and audio_duration and audio_duration < final_duration:
+                need_audio_loop = True
+                audio_loop_count = int(final_duration / audio_duration) + 1
+                yield log_event(f"🔁 Audio ngan hon video -> loop audio {audio_loop_count} lan")
+
+            # Build audio filter chain
+            # Nếu cần loop: dùng -stream_loop trên input audio
+            # Luôn dùng apad để đảm bảo audio đủ dài bằng video
+            af_parts = list(audio_filters)  # copy các effect filters (atempo, afade...)
+            if final_duration:
+                af_parts.append(f'apad=whole_dur={final_duration:.3f}')
+
+            if af_parts:
+                audio_filter_complex = f'[1:a]{",".join(af_parts)}[a]'
+            else:
+                audio_filter_complex = None
+
+            # Build input args (có thể thêm -stream_loop cho audio)
+            input_args = ['-i', processed_video]
+            if need_audio_loop:
+                input_args.extend(['-stream_loop', str(audio_loop_count), '-i', temp_audio])
+            else:
+                input_args.extend(['-i', temp_audio])
+
+            # Build ffmpeg command dựa trên filters
+            if vf_str and audio_filter_complex:
+                full_filter = f'[0:v]{vf_str}[vout];{audio_filter_complex}'
+                cmd = ['ffmpeg', '-y'] + input_args + [
+                    '-filter_complex', full_filter,
+                    '-map', '[vout]',
+                    '-map', '[a]',
+                    '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+                    '-c:a', 'aac',
+                ]
+            elif vf_str:
+                # Có video filter, không có audio filter complex
+                if final_duration:
+                    full_filter = f'[0:v]{vf_str}[vout];[1:a]apad=whole_dur={final_duration:.3f}[a]'
+                    cmd = ['ffmpeg', '-y'] + input_args + [
+                        '-filter_complex', full_filter,
+                        '-map', '[vout]',
+                        '-map', '[a]',
+                        '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+                        '-c:a', 'aac',
+                    ]
+                else:
+                    cmd = ['ffmpeg', '-y'] + input_args + [
+                        '-vf', vf_str,
+                        '-map', '0:v',
+                        '-map', '1:a',
+                        '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+                        '-c:a', 'aac',
+                    ]
+            elif audio_filter_complex:
+                # Chỉ có audio filter, không có video filter
+                cmd = ['ffmpeg', '-y'] + input_args + [
+                    '-filter_complex', audio_filter_complex,
                     '-map', '0:v',
                     '-map', '[a]',
                     '-c:v', 'copy',
                     '-c:a', 'aac',
-                    '-t', str(target_duration),
-                    output_path
                 ]
             else:
-                # Không có target_duration -> dùng -shortest
-                cmd = [
-                    'ffmpeg', '-y',
-                    '-i', processed_video,
-                    '-i', temp_audio,
-                    '-map', '0:v',
-                    '-map', '1:a',
-                    '-c:v', 'copy',
-                    '-c:a', 'aac',
-                    '-shortest',
-                    output_path
-                ]
-            
-            yield log_event(f"📋 Thoi luong output: {target_duration if target_duration else 'theo video/audio'} giay")
-            yield progress_event(65)
-            
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-            
-            if result.returncode != 0:
-                yield log_event(f"⚠️ Copy codec that bai, thu re-encode...", "warn")
-                yield log_event(f"Chi tiet: {result.stderr[:300]}", "warn")
-                
-                # Thử lại với re-encode video
-                yield log_event("🔄 Thu lai voi libx264 (cham hon)...")
-                yield progress_event(70)
-                
-                if target_duration:
-                    cmd_reencode = [
-                        'ffmpeg', '-y',
-                        '-i', processed_video,
-                        '-i', temp_audio,
-                        '-filter_complex', f'[1:a]apad=whole_dur={target_duration}[a]',
+                # Không có filter nào
+                if final_duration:
+                    cmd = ['ffmpeg', '-y'] + input_args + [
+                        '-filter_complex', f'[1:a]apad=whole_dur={final_duration:.3f}[a]',
                         '-map', '0:v',
                         '-map', '[a]',
-                        '-c:v', 'libx264',
-                        '-preset', 'fast',
+                        '-c:v', 'copy',
                         '-c:a', 'aac',
-                        '-t', str(target_duration),
+                    ]
+                else:
+                    cmd = ['ffmpeg', '-y'] + input_args + [
+                        '-map', '0:v',
+                        '-map', '1:a',
+                        '-c:v', 'copy',
+                        '-c:a', 'aac',
+                    ]
+
+            # Luôn thêm -t = final_duration (dùng float chính xác để tránh freeze frame cuối)
+            if final_duration:
+                cmd.extend(['-t', f'{final_duration:.3f}'])
+
+            cmd.append(output_path)
+
+            yield log_event(f"📋 Thoi luong output: {target_duration if target_duration else 'theo video/audio'} giay")
+            yield progress_event(65)
+
+            timeout_val = 600 if has_effects else 300
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_val)
+
+            if result.returncode != 0:
+                yield log_event(f"⚠️ Lan 1 that bai, thu re-encode...", "warn")
+                yield log_event(f"Chi tiet: {result.stderr[:300]}", "warn")
+
+                # Thử lại với re-encode, bỏ zoom filter nếu gây lỗi
+                yield log_event("🔄 Thu lai voi cau hinh don gian hon...")
+                yield progress_event(70)
+
+                # Fallback: bỏ zoom (filter phức tạp nhất), giữ các filter đơn giản
+                simple_filters = [f for f in video_filters if 'zoompan' not in f]
+                simple_vf = ','.join(simple_filters) if simple_filters else None
+
+                if simple_vf and final_duration:
+                    fallback_filter = f'[0:v]{simple_vf}[vout];[1:a]apad=whole_dur={final_duration:.3f}[a]'
+                    cmd_reencode = ['ffmpeg', '-y'] + input_args + [
+                        '-filter_complex', fallback_filter,
+                        '-map', '[vout]', '-map', '[a]',
+                        '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+                        '-c:a', 'aac',
+                        '-t', f'{final_duration:.3f}',
+                        output_path
+                    ]
+                elif final_duration:
+                    cmd_reencode = ['ffmpeg', '-y'] + input_args + [
+                        '-filter_complex', f'[1:a]apad=whole_dur={final_duration:.3f}[a]',
+                        '-map', '0:v', '-map', '[a]',
+                        '-c:v', 'libx264', '-preset', 'fast',
+                        '-c:a', 'aac',
+                        '-t', f'{final_duration:.3f}',
                         output_path
                     ]
                 else:
-                    cmd_reencode = [
-                        'ffmpeg', '-y',
-                        '-i', processed_video,
-                        '-i', temp_audio,
-                        '-map', '0:v',
-                        '-map', '1:a',
-                        '-c:v', 'libx264',
-                        '-preset', 'fast',
+                    cmd_reencode = ['ffmpeg', '-y'] + input_args + [
+                        '-map', '0:v', '-map', '1:a',
+                        '-c:v', 'libx264', '-preset', 'fast',
                         '-c:a', 'aac',
-                        '-shortest',
                         output_path
                     ]
                 result = subprocess.run(cmd_reencode, capture_output=True, text=True, timeout=600)
@@ -991,6 +1135,401 @@ def api_merge():
             if 'processed_video' in dir() and processed_video != temp_video and os.path.exists(processed_video):
                 os.remove(processed_video)
     
+    return Response(generate_stream(), mimetype="text/event-stream")
+
+
+# ---------- Multi Merge ----------
+
+@app.route("/api/multi-merge", methods=["POST"])
+def api_multi_merge():
+    """Ghép nhiều video lại với nhau + audio."""
+
+    # Validate inputs
+    video_files = request.files.getlist('videos')
+    durations = request.form.getlist('durations')
+    audio_file = request.files.get('audio')
+
+    if not video_files or len(video_files) == 0:
+        def error_stream():
+            yield error_event("Vui long chon it nhat 1 video!")
+        return Response(error_stream(), mimetype="text/event-stream")
+
+    if not audio_file or not audio_file.filename:
+        def error_stream():
+            yield error_event("Vui long chon audio!")
+        return Response(error_stream(), mimetype="text/event-stream")
+
+    # Parse effects
+    effects_str = request.form.get('effects', '')
+    effects = [e.strip() for e in effects_str.split(',') if e.strip()] if effects_str else []
+
+    # Save files
+    os.makedirs(Config.TEMP_DIR, exist_ok=True)
+    unique_id = uuid.uuid4().hex[:8]
+
+    # Ghép video và duration theo cặp (tránh lệch index)
+    temp_videos = []
+    pair_idx = 0
+    for vf in video_files:
+        if not vf.filename:
+            continue
+        ext = os.path.splitext(vf.filename)[1].lower()
+        temp_path = os.path.join(Config.TEMP_DIR, f"multi_video_{unique_id}_{pair_idx}{ext}")
+        vf.save(temp_path)
+        dur = 0
+        if pair_idx < len(durations):
+            dur_str = durations[pair_idx].strip()
+            if dur_str and dur_str != '0':
+                try:
+                    dur = int(dur_str)
+                except ValueError:
+                    dur = 0
+        temp_videos.append((temp_path, vf.filename, dur))
+        pair_idx += 1
+
+    audio_ext = os.path.splitext(audio_file.filename)[1].lower()
+    temp_audio = os.path.join(Config.TEMP_DIR, f"multi_audio_{unique_id}{audio_ext}")
+    audio_file.save(temp_audio)
+
+    def cleanup_files():
+        for tv, _, _ in temp_videos:
+            if os.path.exists(tv):
+                os.remove(tv)
+        if os.path.exists(temp_audio):
+            os.remove(temp_audio)
+
+    def generate_stream():
+        yield log_event("🎞️ Bat dau ghep nhieu video...")
+        yield progress_event(5)
+
+        yield log_event(f"📥 So video: {len(temp_videos)} | Durations nhan duoc: {durations}")
+        for i, (path, name, dur) in enumerate(temp_videos):
+            size_mb = os.path.getsize(path) / 1024 / 1024
+            dur_str = f"cat lay {dur}s" if dur > 0 else "nguyen goc (KHONG cat)"
+            yield log_event(f"  Video {i+1}: {name} ({size_mb:.1f} MB) -> {dur_str}")
+        yield progress_event(10)
+
+        os.makedirs(Config.OUTPUT_DIR, exist_ok=True)
+        output_path = os.path.join(Config.OUTPUT_DIR, f"multi_merged_{unique_id}.mp4")
+
+        temp_processed = []  # Các file tạm sau khi xử lý từng video
+
+        try:
+            # Bước 1: Xử lý từng video (cắt/lặp theo duration)
+            yield log_event("🔧 Xu ly tung video...")
+            yield progress_event(15)
+
+            # Lấy width/height của video đầu tiên làm chuẩn
+            probe_size_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+                              '-show_entries', 'stream=width,height',
+                              '-of', 'csv=s=x:p=0', temp_videos[0][0]]
+            probe_size = subprocess.run(probe_size_cmd, capture_output=True, text=True)
+            try:
+                target_w, target_h = probe_size.stdout.strip().split('x')
+                target_w, target_h = int(target_w), int(target_h)
+            except:
+                target_w, target_h = 1920, 1080
+
+            yield log_event(f"📐 Resolution chuan: {target_w}x{target_h}")
+
+            total_duration = 0
+            progress_per_video = 40 / max(len(temp_videos), 1)
+
+            for i, (video_path, video_name, target_dur) in enumerate(temp_videos):
+                yield log_event(f"⚙️ Xu ly video {i+1}/{len(temp_videos)}: {video_name}")
+
+                # Lấy duration video gốc
+                probe_cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                             '-of', 'default=noprint_wrappers=1:nokey=1', video_path]
+                probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+                orig_dur = float(probe_result.stdout.strip()) if probe_result.returncode == 0 else None
+
+                yield log_event(f"  📹 Video goc: {orig_dur:.1f}s | Yeu cau: {target_dur}s" if orig_dur else f"  📹 Khong doc duoc duration | Yeu cau: {target_dur}s")
+
+                processed_path = os.path.join(Config.TEMP_DIR, f"multi_proc_{unique_id}_{i}.mp4")
+
+                # Scale + ép cùng 30fps (QUAN TRỌNG: tất cả video phải cùng fps để concat không bị lệch timestamp)
+                target_fps = 30
+                scale_filter = f"scale={target_w}:{target_h}:force_original_aspect_ratio=increase,crop={target_w}:{target_h},setsar=1:1,fps={target_fps},format=yuv420p"
+
+                # Base ffmpeg args cho mọi trường hợp
+                base_output_args = [
+                    '-vf', scale_filter,
+                    '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+                    '-r', str(target_fps),
+                    '-video_track_timescale', str(target_fps * 1000),
+                    '-an',
+                    processed_path
+                ]
+
+                if target_dur > 0:
+                    if orig_dur and orig_dur >= target_dur:
+                        # Video dài hơn yêu cầu -> cắt bớt
+                        yield log_event(f"  ✂️ Cat tu {orig_dur:.1f}s xuong {target_dur}s")
+                        cmd = ['ffmpeg', '-y', '-i', video_path, '-t', str(target_dur)] + base_output_args
+                    elif orig_dur:
+                        # Video ngắn hơn yêu cầu -> lặp lại
+                        loops = int(target_dur / orig_dur) + 1
+                        yield log_event(f"  🔁 Loop {loops} lan ({orig_dur:.1f}s -> {target_dur}s)")
+                        cmd = ['ffmpeg', '-y', '-stream_loop', str(loops), '-i', video_path, '-t', str(target_dur)] + base_output_args
+                    else:
+                        # Không đọc được duration gốc -> vẫn cắt theo target_dur
+                        yield log_event(f"  ⚠️ Khong doc duoc duration goc, cat theo {target_dur}s")
+                        cmd = ['ffmpeg', '-y', '-i', video_path, '-t', str(target_dur)] + base_output_args
+                else:
+                    # Không nhập duration -> lấy nguyên gốc
+                    yield log_event(f"  ℹ️ Khong nhap duration -> lay nguyen goc {orig_dur:.1f}s" if orig_dur else "  ℹ️ Lay nguyen goc")
+                    cmd = ['ffmpeg', '-y', '-i', video_path] + base_output_args
+                    target_dur = orig_dur if orig_dur else 10
+
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                if result.returncode != 0:
+                    yield log_event(f"⚠️ Loi xu ly video {i+1}: {result.stderr[:200]}", "warn")
+                    cleanup_files()
+                    for tp in temp_processed:
+                        if os.path.exists(tp):
+                            os.remove(tp)
+                    yield error_event(f"❌ Khong the xu ly video {i+1}")
+                    return
+
+                # Probe duration thực sau khi xử lý
+                probe_proc_cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                                  '-of', 'default=noprint_wrappers=1:nokey=1', processed_path]
+                probe_proc_result = subprocess.run(probe_proc_cmd, capture_output=True, text=True)
+                actual_dur = float(probe_proc_result.stdout.strip()) if probe_proc_result.returncode == 0 else target_dur
+
+                temp_processed.append(processed_path)
+                total_duration += actual_dur
+                yield log_event(f"  ✓ Video {i+1}: yeu cau {target_dur}s -> thuc te {actual_dur:.2f}s", "success")
+                yield progress_event(15 + int(progress_per_video * (i + 1)))
+
+            yield log_event(f"📊 Tong thoi luong (tu tung video): {total_duration:.2f}s")
+            yield progress_event(55)
+
+            # Bước 2: Nối các video lại bằng concat filter (đáng tin cậy hơn concat demuxer)
+            yield log_event(f"🔗 Dang noi {len(temp_processed)} video lai (concat filter)...")
+
+            concat_path = os.path.join(Config.TEMP_DIR, f"multi_concat_{unique_id}.mp4")
+
+            # Dùng concat filter: xử lý đúng kể cả khi video có profile/level khác nhau
+            concat_inputs = []
+            filter_parts = []
+            for j, pp in enumerate(temp_processed):
+                concat_inputs.extend(['-i', pp])
+                filter_parts.append(f'[{j}:v]')
+
+            concat_filter = ''.join(filter_parts) + f'concat=n={len(temp_processed)}:v=1:a=0[outv]'
+
+            concat_cmd = ['ffmpeg', '-y'] + concat_inputs + [
+                '-filter_complex', concat_filter,
+                '-map', '[outv]',
+                '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+                '-r', '30',
+                '-movflags', '+faststart',
+                concat_path
+            ]
+            result = subprocess.run(concat_cmd, capture_output=True, text=True, timeout=600)
+
+            if result.returncode != 0:
+                yield log_event(f"⚠️ Concat filter that bai, thu concat demuxer...", "warn")
+                yield log_event(f"  Loi: {result.stderr[:200]}", "warn")
+                # Fallback: concat demuxer
+                concat_list = os.path.join(Config.TEMP_DIR, f"multi_concat_list_{unique_id}.txt")
+                with open(concat_list, 'w') as f:
+                    for pp in temp_processed:
+                        f.write(f"file '{os.path.abspath(pp)}'\n")
+                concat_cmd = [
+                    'ffmpeg', '-y', '-f', 'concat', '-safe', '0',
+                    '-i', concat_list,
+                    '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+                    concat_path
+                ]
+                result = subprocess.run(concat_cmd, capture_output=True, text=True, timeout=600)
+                if os.path.exists(concat_list):
+                    os.remove(concat_list)
+
+            if result.returncode != 0:
+                yield error_event("❌ Khong the noi video!")
+                yield log_event(f"FFmpeg: {result.stderr[:300]}", "error")
+                cleanup_files()
+                for tp in temp_processed:
+                    if os.path.exists(tp):
+                        os.remove(tp)
+                return
+
+            yield log_event("✓ Da noi video thanh cong", "success")
+            yield progress_event(65)
+
+            # Bước 3: Probe duration THỰC của video đã concat (tránh freeze frame cuối)
+            probe_concat_cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                                '-of', 'default=noprint_wrappers=1:nokey=1', concat_path]
+            probe_concat_result = subprocess.run(probe_concat_cmd, capture_output=True, text=True)
+            actual_video_duration = float(probe_concat_result.stdout.strip()) if probe_concat_result.returncode == 0 else None
+
+            if actual_video_duration:
+                yield log_event(f"📏 Thoi luong video thuc te sau concat: {actual_video_duration:.2f}s (yeu cau: {total_duration}s)")
+                # Dùng duration thực thay vì duration tính tay để tránh freeze frame cuối
+                total_duration = actual_video_duration
+            else:
+                yield log_event("⚠️ Khong the do thoi luong thuc, dung thoi luong tinh tay", "warn")
+
+            # Bước 4: Ghép audio (loop nếu cần)
+            yield log_event("🎵 Dang ghep audio...")
+
+            # Lấy audio duration
+            probe_audio_cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                               '-of', 'default=noprint_wrappers=1:nokey=1', temp_audio]
+            probe_audio_result = subprocess.run(probe_audio_cmd, capture_output=True, text=True)
+            audio_duration = float(probe_audio_result.stdout.strip()) if probe_audio_result.returncode == 0 else None
+
+            if audio_duration:
+                yield log_event(f"🎵 Audio: {audio_duration:.1f}s | Video: {total_duration:.1f}s")
+
+            # Build video effects filter
+            has_effects = len(effects) > 0
+            video_filters = []
+            audio_filters = []
+
+            if has_effects:
+                yield log_event(f"🎨 Ap dung hieu ung: {', '.join(effects)}")
+
+            if 'mirror' in effects:
+                video_filters.append('hflip')
+            if 'color' in effects:
+                video_filters.append('eq=saturation=1.3:contrast=1.1:brightness=0.05')
+            if 'zoom' in effects:
+                video_filters.append(
+                    f"scale={int(target_w*1.1)}:{int(target_h*1.1)},"
+                    f"zoompan=z='min(zoom+0.0002,1.1)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={target_w}x{target_h}:fps=30"
+                )
+            if 'vignette' in effects:
+                video_filters.append('vignette=PI/4')
+            if 'speed' in effects:
+                video_filters.append('setpts=PTS/1.05')
+                audio_filters.append('atempo=1.05')
+
+            if 'fade' in effects and total_duration:
+                fade_dur = min(2, total_duration * 0.1)
+                fade_out_start = total_duration - fade_dur
+                video_filters.append(f'fade=t=in:st=0:d={fade_dur:.1f}')
+                video_filters.append(f'fade=t=out:st={fade_out_start:.1f}:d={fade_dur:.1f}')
+                audio_filters.append(f'afade=t=in:st=0:d={fade_dur:.1f}')
+                audio_filters.append(f'afade=t=out:st={fade_out_start:.1f}:d={fade_dur:.1f}')
+
+            vf_str = ','.join(video_filters) if video_filters else None
+
+            # Audio input args (loop nếu cần)
+            input_args = ['-i', concat_path]
+            if audio_duration and audio_duration < total_duration:
+                audio_loop_count = int(total_duration / audio_duration) + 1
+                yield log_event(f"🔁 Audio ngan hon -> loop {audio_loop_count} lan")
+                input_args.extend(['-stream_loop', str(audio_loop_count), '-i', temp_audio])
+            else:
+                input_args.extend(['-i', temp_audio])
+
+            # Dùng duration thực (float) để audio khớp chính xác với video
+            dur_str = f'{total_duration:.3f}'
+
+            # Audio filter chain
+            af_parts = list(audio_filters)
+            af_parts.append(f'apad=whole_dur={dur_str}')
+            audio_filter_complex = f'[1:a]{",".join(af_parts)}[a]'
+
+            # Build final merge command
+            if vf_str:
+                full_filter = f'[0:v]{vf_str}[vout];{audio_filter_complex}'
+                merge_cmd = ['ffmpeg', '-y'] + input_args + [
+                    '-filter_complex', full_filter,
+                    '-map', '[vout]', '-map', '[a]',
+                    '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+                    '-c:a', 'aac',
+                    '-t', dur_str,
+                    output_path
+                ]
+            else:
+                merge_cmd = ['ffmpeg', '-y'] + input_args + [
+                    '-filter_complex', audio_filter_complex,
+                    '-map', '0:v', '-map', '[a]',
+                    '-c:v', 'copy',
+                    '-c:a', 'aac',
+                    '-t', dur_str,
+                    output_path
+                ]
+
+            yield progress_event(70)
+            yield log_event("⏳ Dang ghep audio vao video...")
+
+            result = subprocess.run(merge_cmd, capture_output=True, text=True, timeout=600)
+
+            if result.returncode != 0:
+                yield log_event(f"⚠️ Lan 1 that bai, thu re-encode...", "warn")
+                # Fallback: bỏ effects phức tạp
+                merge_cmd_fallback = ['ffmpeg', '-y'] + input_args + [
+                    '-filter_complex', f'[1:a]apad=whole_dur={dur_str}[a]',
+                    '-map', '0:v', '-map', '[a]',
+                    '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+                    '-c:a', 'aac',
+                    '-t', dur_str,
+                    output_path
+                ]
+                result = subprocess.run(merge_cmd_fallback, capture_output=True, text=True, timeout=600)
+
+                if result.returncode != 0:
+                    yield error_event("❌ Khong the ghep audio!")
+                    yield log_event(f"FFmpeg: {result.stderr[:500]}", "error")
+                    cleanup_files()
+                    for tp in temp_processed:
+                        if os.path.exists(tp):
+                            os.remove(tp)
+                    if os.path.exists(concat_path):
+                        os.remove(concat_path)
+                    return
+
+            yield log_event("✓ Ghep audio thanh cong", "success")
+            yield progress_event(90)
+
+            # Kiểm tra output
+            if not os.path.exists(output_path) or os.path.getsize(output_path) < 1000:
+                yield error_event("❌ File output loi!")
+                cleanup_files()
+                for tp in temp_processed:
+                    if os.path.exists(tp):
+                        os.remove(tp)
+                if os.path.exists(concat_path):
+                    os.remove(concat_path)
+                return
+
+            output_size = os.path.getsize(output_path) / 1024 / 1024
+            yield log_event(f"✓ Output: {output_size:.1f} MB", "success")
+
+            # Cleanup
+            yield log_event("🗑️ Xoa file tam...")
+            cleanup_files()
+            for tp in temp_processed:
+                if os.path.exists(tp):
+                    os.remove(tp)
+            if os.path.exists(concat_path):
+                os.remove(concat_path)
+
+            yield progress_event(100)
+            yield log_event("🎉 HOAN THANH!", "success")
+            yield done_event("Ghep nhieu video thanh cong!", [output_path])
+
+        except subprocess.TimeoutExpired:
+            yield error_event("⏰ Qua thoi gian xu ly!")
+            cleanup_files()
+            for tp in temp_processed:
+                if os.path.exists(tp):
+                    os.remove(tp)
+        except Exception as e:
+            yield error_event(f"❌ Loi: {str(e)}")
+            import traceback
+            yield log_event(f"Chi tiet: {traceback.format_exc()[:500]}", "error")
+            cleanup_files()
+            for tp in temp_processed:
+                if os.path.exists(tp):
+                    os.remove(tp)
+
     return Response(generate_stream(), mimetype="text/event-stream")
 
 

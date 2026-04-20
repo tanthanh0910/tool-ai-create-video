@@ -354,6 +354,9 @@
             <button type="button" class="tab-btn" onclick="switchTab('merge')">
                 🔀 Ghep Video + Audio
             </button>
+            <button type="button" class="tab-btn" onclick="switchTab('multi')">
+                🎞️ Ghep Nhieu Video
+            </button>
         </div>
 
         <!-- ============== TAB 1: VIDEO THƯỜNG ============== -->
@@ -530,7 +533,8 @@
                 <b>🔀 Ghep Video + Audio</b><br>
                 • Chon video va audio tu may tinh<br>
                 • Video: MP4 | Audio: MP3/WAV/M4A<br>
-                • Neu nhap thoi luong: video se lap lai/cat, audio phat 1 lan
+                • Audio tu dong loop theo thoi luong video<br>
+                • Neu nhap thoi luong: video se lap lai/cat
             </div>
 
             <!-- Video File Input -->
@@ -552,13 +556,133 @@
                 <label>Thoi luong mong muon (giay) - de trong = lay thoi luong video goc</label>
                 <input type="number" id="merge-duration" placeholder="VD: 30" min="1" max="600">
                 <div style="margin-top: 5px; font-size: 0.8em; color: #888;">
-                    💡 Neu nhap thoi luong: video se duoc cat/lap lai cho du, audio chi phat 1 lan
+                    💡 De trong = lay thoi luong video lam goc, audio se tu dong loop lai neu ngan hon
+                </div>
+            </div>
+
+            <!-- Effects Section -->
+            <div class="form-group">
+                <label>Hieu ung lam video unique (tranh bi canh bao "noi dung khong nguyen tac")</label>
+                <div style="background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 10px; padding: 16px;">
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <!-- Zoom Effect -->
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc; font-size: 0.9em;">
+                            <input type="checkbox" id="fx-zoom" style="width: auto; accent-color: #7b2ff7;">
+                            🔍 Zoom nhe (Ken Burns)
+                        </label>
+
+                        <!-- Color Enhancement -->
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc; font-size: 0.9em;">
+                            <input type="checkbox" id="fx-color" style="width: auto; accent-color: #7b2ff7;">
+                            🎨 Tang mau sac
+                        </label>
+
+                        <!-- Fade In/Out -->
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc; font-size: 0.9em;">
+                            <input type="checkbox" id="fx-fade" style="width: auto; accent-color: #7b2ff7;">
+                            🌅 Fade in/out
+                        </label>
+
+                        <!-- Mirror -->
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc; font-size: 0.9em;">
+                            <input type="checkbox" id="fx-mirror" style="width: auto; accent-color: #7b2ff7;">
+                            🪞 Lat nguoc (mirror)
+                        </label>
+
+                        <!-- Speed Change -->
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc; font-size: 0.9em;">
+                            <input type="checkbox" id="fx-speed" style="width: auto; accent-color: #7b2ff7;">
+                            ⚡ Tang toc nhe (1.05x)
+                        </label>
+
+                        <!-- Vignette -->
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc; font-size: 0.9em;">
+                            <input type="checkbox" id="fx-vignette" style="width: auto; accent-color: #7b2ff7;">
+                            🎬 Vignette (toi vien)
+                        </label>
+                    </div>
+
+                    <div style="margin-top: 12px; font-size: 0.8em; color: #888; border-top: 1px solid #2a2a3e; padding-top: 10px;">
+                        💡 Chon it nhat 1-2 hieu ung de YouTube/TikTok khong danh dau "noi dung khong nguyen tac".<br>
+                        📌 Cac hieu ung se lam video khac ban goc, giup tranh bi canh bao.
+                    </div>
                 </div>
             </div>
 
             <!-- Merge Button -->
             <button class="btn btn-primary" id="btn-merge" onclick="startMerge()">
                 🔀 Ghep Video Va Audio
+            </button>
+        </div>
+
+        <!-- ============== TAB 4: GHEP NHIEU VIDEO ============== -->
+        <div class="tab-content" id="tab-multi">
+            <div class="info-box">
+                <b>🎞️ Ghep Nhieu Video</b><br>
+                • Tai len nhieu video, moi video chon thoi luong rieng<br>
+                • Cac video se duoc noi lai theo thu tu<br>
+                • Audio se tu dong loop neu ngan hon tong thoi luong
+            </div>
+
+            <!-- Video List -->
+            <div class="form-group">
+                <label>Danh sach video</label>
+                <div id="multi-video-list"></div>
+                <button type="button" class="btn" onclick="addVideoSlot()" style="background: #2a2a3e; color: #00d2ff; margin-top: 10px; font-size: 0.9em; padding: 12px;">
+                    + Them video
+                </button>
+            </div>
+
+            <!-- Total Duration Display -->
+            <div style="background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 10px; padding: 12px 16px; margin-bottom: 20px;">
+                <span style="color: #888;">Tong thoi luong:</span>
+                <span id="multi-total-duration" style="color: #00d2ff; font-weight: 700; font-size: 1.1em; margin-left: 8px;">0s</span>
+            </div>
+
+            <!-- Audio File -->
+            <div class="form-group">
+                <label>Chon audio (MP3/WAV/M4A)</label>
+                <input type="file" id="multi-audio-file" accept=".mp3, .wav, .m4a" onchange="updateMultiAudioName()">
+                <div id="multi-audio-file-name" class="file-name"></div>
+            </div>
+
+            <!-- Effects Section (same as merge tab) -->
+            <div class="form-group">
+                <label>Hieu ung lam video unique</label>
+                <div style="background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 10px; padding: 16px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc; font-size: 0.9em;">
+                            <input type="checkbox" id="multi-fx-zoom" style="width: auto; accent-color: #7b2ff7;">
+                            🔍 Zoom nhe (Ken Burns)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc; font-size: 0.9em;">
+                            <input type="checkbox" id="multi-fx-color" style="width: auto; accent-color: #7b2ff7;">
+                            🎨 Tang mau sac
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc; font-size: 0.9em;">
+                            <input type="checkbox" id="multi-fx-fade" style="width: auto; accent-color: #7b2ff7;">
+                            🌅 Fade in/out
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc; font-size: 0.9em;">
+                            <input type="checkbox" id="multi-fx-mirror" style="width: auto; accent-color: #7b2ff7;">
+                            🪞 Lat nguoc (mirror)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc; font-size: 0.9em;">
+                            <input type="checkbox" id="multi-fx-speed" style="width: auto; accent-color: #7b2ff7;">
+                            ⚡ Tang toc nhe (1.05x)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc; font-size: 0.9em;">
+                            <input type="checkbox" id="multi-fx-vignette" style="width: auto; accent-color: #7b2ff7;">
+                            🎬 Vignette (toi vien)
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Merge Button -->
+            <button class="btn btn-primary" id="btn-multi-merge" onclick="startMultiMerge()">
+                🎞️ Ghep Nhieu Video Lai
             </button>
         </div>
 
@@ -585,12 +709,13 @@
         // Tab switching
         function switchTab(tab) {
             currentTab = tab;
+            const tabNames = ['normal', 'shorts', 'merge', 'multi'];
             document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-                btn.classList.toggle('active', (tab === 'normal' && i === 0) || (tab === 'shorts' && i === 1) || (tab === 'merge' && i === 2));
+                btn.classList.toggle('active', tab === tabNames[i]);
             });
-            document.getElementById('tab-normal').classList.toggle('active', tab === 'normal');
-            document.getElementById('tab-shorts').classList.toggle('active', tab === 'shorts');
-            document.getElementById('tab-merge').classList.toggle('active', tab === 'merge');
+            tabNames.forEach(t => {
+                document.getElementById('tab-' + t).classList.toggle('active', tab === t);
+            });
         }
 
         // Mode selection (for normal tab)
@@ -893,6 +1018,18 @@
                 formData.append('duration', duration);
             }
 
+            // Collect effects
+            const effects = [];
+            if (document.getElementById('fx-zoom').checked) effects.push('zoom');
+            if (document.getElementById('fx-color').checked) effects.push('color');
+            if (document.getElementById('fx-fade').checked) effects.push('fade');
+            if (document.getElementById('fx-mirror').checked) effects.push('mirror');
+            if (document.getElementById('fx-speed').checked) effects.push('speed');
+            if (document.getElementById('fx-vignette').checked) effects.push('vignette');
+            if (effects.length > 0) {
+                formData.append('effects', effects.join(','));
+            }
+
             await streamSSE('/api/merge', {
                 method: 'POST',
                 body: formData,
@@ -901,6 +1038,127 @@
             btn.disabled = false;
             btn.textContent = '🔀 Ghep Video Va Audio';
         }
+
+        // ============ MULTI VIDEO ============
+        let multiVideoCount = 0;
+
+        function addVideoSlot() {
+            multiVideoCount++;
+            const idx = multiVideoCount;
+            const container = document.getElementById('multi-video-list');
+            const slot = document.createElement('div');
+            slot.id = `multi-slot-${idx}`;
+            slot.style.cssText = 'background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 10px; padding: 14px; margin-bottom: 10px; position: relative;';
+            slot.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="color: #00d2ff; font-weight: 600;">Video ${idx}</span>
+                    <button type="button" onclick="removeVideoSlot(${idx})" style="background: #ff4466; border: none; color: white; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 0.8em;">Xoa</button>
+                </div>
+                <input type="file" id="multi-video-${idx}" accept=".mp4" onchange="updateMultiVideoName(${idx})" style="margin-bottom: 8px;">
+                <div id="multi-video-name-${idx}" class="file-name" style="margin-bottom: 8px;"></div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label style="color: #aaa; font-size: 0.85em; white-space: nowrap;">Thoi luong (s):</label>
+                    <input type="number" id="multi-dur-${idx}" placeholder="VD: 3" min="1" max="300" style="flex: 1;" onchange="updateMultiTotalDuration()">
+                </div>
+            `;
+            container.appendChild(slot);
+        }
+
+        function removeVideoSlot(idx) {
+            const slot = document.getElementById(`multi-slot-${idx}`);
+            if (slot) slot.remove();
+            updateMultiTotalDuration();
+        }
+
+        function updateMultiVideoName(idx) {
+            const fileInput = document.getElementById(`multi-video-${idx}`);
+            const nameDiv = document.getElementById(`multi-video-name-${idx}`);
+            if (fileInput.files[0]) {
+                const sizeMB = (fileInput.files[0].size / 1024 / 1024).toFixed(2);
+                nameDiv.textContent = `✓ ${fileInput.files[0].name} (${sizeMB} MB)`;
+            }
+        }
+
+        function updateMultiAudioName() {
+            const fileInput = document.getElementById('multi-audio-file');
+            const nameDiv = document.getElementById('multi-audio-file-name');
+            if (fileInput.files[0]) {
+                const sizeMB = (fileInput.files[0].size / 1024 / 1024).toFixed(2);
+                nameDiv.textContent = `✓ ${fileInput.files[0].name} (${sizeMB} MB)`;
+            }
+        }
+
+        function updateMultiTotalDuration() {
+            let total = 0;
+            document.querySelectorAll('[id^="multi-dur-"]').forEach(input => {
+                total += parseInt(input.value) || 0;
+            });
+            document.getElementById('multi-total-duration').textContent = total + 's';
+        }
+
+        async function startMultiMerge() {
+            // Collect all video slots
+            const slots = document.querySelectorAll('[id^="multi-slot-"]');
+            if (slots.length === 0) {
+                alert('Vui long them it nhat 1 video!');
+                return;
+            }
+
+            const audioFile = document.getElementById('multi-audio-file').files[0];
+            if (!audioFile) {
+                alert('Vui long chon audio!');
+                return;
+            }
+
+            const formData = new FormData();
+            let videoCount = 0;
+
+            slots.forEach(slot => {
+                const idx = slot.id.replace('multi-slot-', '');
+                const fileInput = document.getElementById(`multi-video-${idx}`);
+                const durInput = document.getElementById(`multi-dur-${idx}`);
+                if (fileInput && fileInput.files[0]) {
+                    formData.append('videos', fileInput.files[0]);
+                    formData.append('durations', durInput.value || '0');
+                    videoCount++;
+                }
+            });
+
+            if (videoCount === 0) {
+                alert('Vui long chon it nhat 1 file video!');
+                return;
+            }
+
+            formData.append('audio', audioFile);
+
+            // Collect effects
+            const effects = [];
+            if (document.getElementById('multi-fx-zoom').checked) effects.push('zoom');
+            if (document.getElementById('multi-fx-color').checked) effects.push('color');
+            if (document.getElementById('multi-fx-fade').checked) effects.push('fade');
+            if (document.getElementById('multi-fx-mirror').checked) effects.push('mirror');
+            if (document.getElementById('multi-fx-speed').checked) effects.push('speed');
+            if (document.getElementById('multi-fx-vignette').checked) effects.push('vignette');
+            if (effects.length > 0) {
+                formData.append('effects', effects.join(','));
+            }
+
+            const btn = document.getElementById('btn-multi-merge');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Dang ghep nhieu video...';
+
+            await streamSSE('/api/multi-merge', {
+                method: 'POST',
+                body: formData,
+            });
+
+            btn.disabled = false;
+            btn.textContent = '🎞️ Ghep Nhieu Video Lai';
+        }
+
+        // Auto add 2 video slots on load
+        addVideoSlot();
+        addVideoSlot();
     </script>
 </body>
 </html>
