@@ -7,103 +7,32 @@ Features:
 - Nhạc nền chung từ sounds/plants/plants.mp3
 - Ghép thành video hoàn chỉnh
 """
-USED_VIDEO_IDS = set()
-
-import asyncio
-import aiohttp
-import os
 import json
+import os
 import random
 import subprocess
+
 from config import Config
-
-import random
-CONTEXTS = ["garden", "field", "forest", "park", "farm", "tropical", "nature"]
-MOTIONS = ["wind blowing", "swaying", "slow motion", "breeze"]
-LIGHTINGS = ["sunlight", "golden hour", "soft light", "morning light", "sunset"]
-STYLES = ["cinematic", "macro", "close up", "wide shot"]
-TRENDS = [
-    "aesthetic",
-    "relaxing",
-    "cinematic",
-    "4k ultra hd",
-    "nature documentary",
-    "viral style",
-    "instagram reels",
-    "tiktok style",
-    "slow living",
-    "ambient"
-]
-
-FLOWER_BOOST = ["macro", "bokeh", "close up"]
-TREE_BOOST = ["wide shot", "aerial"]
-
-USED_KEYWORDS = set()
-
-
-# def _generate_smart_keyword(base_query: str) -> str:
-#     words = base_query.split()
-#     core = " ".join(words[:3])  # giữ object chính
-
-#     # detect loại
-#     if "flower" in base_query:
-#         style = random.choice(FLOWER_BOOST)
-#     elif "tree" in base_query:
-#         style = random.choice(TREE_BOOST)
-#     else:
-#         style = random.choice(STYLES)
-
-#     return " ".join([
-#         core,
-#         random.choice(CONTEXTS),
-#         random.choice(MOTIONS),
-#         random.choice(LIGHTINGS),
-#         style,
-#         random.choice(TRENDS),
-#         "4k"
-#     ])
-def _generate_smart_keyword(base_query: str) -> str:
-    words = base_query.split()
-    core = " ".join(words[:2])  # giữ object chính gọn hơn
-
-    if "flower" in base_query:
-        style = random.choice(FLOWER_BOOST)
-    elif "tree" in base_query:
-        style = random.choice(TREE_BOOST)
-    else:
-        style = random.choice(STYLES)
-
-    return " ".join(filter(None, [
-        core,
-        random.choice(CONTEXTS),
-        random.choice(MOTIONS),
-        random.choice(LIGHTINGS),
-        style,
-        random.choice(TRENDS),
-        "4k"
-    ]))
-
-
-def _get_unique_keyword(base_query: str) -> str:
-    for _ in range(10):
-        kw = _generate_smart_keyword(base_query)
-        if kw not in USED_KEYWORDS:
-            USED_KEYWORDS.add(kw)
-            return kw
-    return kw
-
 from generators.animal_video_generator import (
     PEXELS_API_KEY,
-    search_pexels_images,
+    _get_aspect_ratio_range,
+    _pexels_video_search_single,
+    add_silence_to_audio,
+    create_image_video,
     download_file,
     get_video_duration,
     resize_video_for_short,
-    create_image_video,
-    concatenate_videos,
-    add_silence_to_audio,
-    _get_aspect_ratio_range,
-    _pexels_video_search_single,
+    search_pexels_images,
 )
+
+# Nho video da dung trong LUOT chay nay de khong lap lai cung mot clip.
+# Reset moi lan bat dau tao video (reset_used_videos()).
+USED_VIDEO_IDS = set()
+
+
+def reset_used_videos() -> None:
+    USED_VIDEO_IDS.clear()
+
 
 # ============================================================
 # PLANT-SPECIFIC PEXELS SEARCH
@@ -276,40 +205,6 @@ def _validate_plant_videos(videos: list[dict], plant_core: str) -> list[dict]:
         return []
 
 
-# def _build_plant_search_queries(query: str) -> list[str]:
-#     """
-#     Tạo danh sách query cho thực vật.
-#     KHÔNG strip "flower", "plant", "tree", "close up", etc.
-#     """
-#     clean = query.strip()
-#     queries = []
-
-#     # Query 1: query gốc đầy đủ (chính xác nhất)
-#     queries.append(clean)
-
-#     # Query 2: rút gọn bớt (bỏ filler nhẹ)
-#     light_filler = {"close", "up", "large", "big", "small", "beautiful", "colorful"}
-#     words = clean.lower().split()
-#     short_words = [w for w in words if w not in light_filler]
-#     if short_words and " ".join(short_words) != clean.lower():
-#         queries.append(" ".join(short_words))
-
-#     # Query 3: chỉ 2-3 từ đầu (fallback)
-#     core_words = clean.split()[:3]
-#     core_query = " ".join(core_words)
-#     if core_query.lower() != clean.lower():
-#         queries.append(core_query)
-
-#     # Loại bỏ trùng lặp, giữ thứ tự
-#     seen = set()
-#     unique = []
-#     for q in queries:
-#         q_lower = q.lower().strip()
-#         if q_lower not in seen:
-#             seen.add(q_lower)
-#             unique.append(q)
-
-#     return unique
 def _build_plant_search_queries(query: str) -> list[str]:
     """
     Tạo danh sách query cho thực vật, từ chính xác → tổng quát.
@@ -677,17 +572,15 @@ async def create_plant_clip(
     target_width: int = 1920,
     target_height: int = 1080,
     is_first_clip: bool = False,
-    skip_narration: bool = False,
 ) -> str | None:
     """
     Tạo 1 clip về 1 loài thực vật:
-    1. Tạo audio đọc tên (nếu skip_narration=False)
+    1. Tạo audio đọc tên
     2. Tìm video/ảnh từ Pexels (dùng plant-specific search)
-    3. Ghép lại (KHÔNG có tiếng kêu, chỉ đọc tên nếu có)
-    
+    3. Ghép lại (KHÔNG có tiếng kêu, chỉ đọc tên)
+
     Args:
         is_first_clip: Nếu True, thêm 1s silence trước narration để tránh chồng lên intro
-        skip_narration: Nếu True, không đọc tên (dùng cho shorts)
     """
     import edge_tts
 
@@ -699,48 +592,37 @@ async def create_plant_clip(
     print(f"    ║ PLANT CLIP #{clip_index}: {plant_name}")
     print(f"    ║ Search term: {search_term}")
     print(f"    ║ Display name: {display_name}")
-    print(f"    ║ Skip narration: {skip_narration}")
     print(f"    ╚══════════════════════════════════════════════════")
 
     clip_dir = os.path.join(work_dir, f"clip_{clip_index:03d}_{safe_name}")
     os.makedirs(clip_dir, exist_ok=True)
 
-    # ========== BƯỚC 1: Tạo audio đọc tên (nếu không skip) ==========
-    narration_path = None
+    # ========== BƯỚC 1: Tạo audio đọc tên ==========
+    narration_path = os.path.join(clip_dir, f"narration_{safe_name}.mp3")
     audio_duration = clip_duration
-    
-    if skip_narration:
-        print(f"      [STEP 1] SKIP narration (shorts mode)")
-    else:
-        narration_path = os.path.join(clip_dir, f"narration_{safe_name}.mp3")
-        narration_text = display_name
-        
-        print(f"      [STEP 1] Generate TTS for: '{narration_text}'")
-        try:
-            communicate = edge_tts.Communicate(narration_text, "vi-VN-HoaiMyNeural")
-            await communicate.save(narration_path)
-            audio_duration = get_video_duration(narration_path)
-            
-            # Thêm silence trước và sau narration để người xem có thời gian xem ảnh/video
-            silence_before = 1.0 if is_first_clip else 0.5
-            silence_after = 4.0  # Tăng thời gian im lặng sau khi đọc tên
-            padded_path = os.path.join(clip_dir, f"narration_{safe_name}_padded.mp3")
-            padded = add_silence_to_audio(narration_path, padded_path, silence_before=silence_before, silence_after=silence_after)
-            if padded:
-                narration_path = padded_path
-                audio_duration = get_video_duration(narration_path)
-            print(f"      [TTS] OK: {audio_duration:.1f}s (silence_before={silence_before}s, silence_after={silence_after}s)")
-        except Exception as e:
-            print(f"      [TTS] ERROR: {e}")
-            audio_duration = clip_duration
-            narration_path = None
 
-    # Nếu skip_narration (shorts mode), LUÔN dùng clip_duration từ người dùng
-    if skip_narration:
-        target_video_duration = clip_duration
-        print(f"      [SHORTS] Force video duration: {target_video_duration:.1f}s (user setting)")
-    else:
-        target_video_duration = audio_duration if narration_path else clip_duration
+    print(f"      [STEP 1] Generate TTS for: '{display_name}'")
+    try:
+        communicate = edge_tts.Communicate(display_name, Config.TTS_VOICE)
+        await communicate.save(narration_path)
+        audio_duration = get_video_duration(narration_path)
+
+        # Thêm silence trước và sau narration để người xem có thời gian xem ảnh/video
+        silence_before = 1.0 if is_first_clip else 0.5
+        silence_after = 4.0
+        padded_path = os.path.join(clip_dir, f"narration_{safe_name}_padded.mp3")
+        padded = add_silence_to_audio(narration_path, padded_path,
+                                      silence_before=silence_before, silence_after=silence_after)
+        if padded:
+            narration_path = padded_path
+            audio_duration = get_video_duration(narration_path)
+        print(f"      [TTS] OK: {audio_duration:.1f}s (before={silence_before}s, after={silence_after}s)")
+    except Exception as e:
+        print(f"      [TTS] ERROR: {e}")
+        audio_duration = clip_duration
+        narration_path = None
+
+    target_video_duration = audio_duration if narration_path else clip_duration
     print(f"      Target duration: {target_video_duration:.1f}s")
 
     # ========== BƯỚC 2: Tìm video/ảnh (dùng plant-specific search) ==========
@@ -763,7 +645,6 @@ async def create_plant_clip(
             videos = await search_pexels_videos_plant(alt_search_term, per_page=10, orientation=orientation)
         
         if videos:
-            # video = random.choice(videos)
             unused_videos = [v for v in videos if v["id"] not in USED_VIDEO_IDS]
 
             if unused_videos:

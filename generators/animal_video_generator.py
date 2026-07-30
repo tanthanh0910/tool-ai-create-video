@@ -8,7 +8,6 @@ Features:
 - Ghép thành video hoàn chỉnh
 """
 
-import asyncio
 import aiohttp
 import os
 import json
@@ -224,7 +223,6 @@ ANIMAL_DATABASE = {
 
     # BÒ SÁT (giữ loài phổ biến)
     "monitor lizard": ("monitor lizard reptile close up", "kỳ đà"),
-    "chameleon": ("chameleon reptile colorful close up", "tắc kè hoa"),
 
     #LƯỠNG CƯ (giữ loài phổ biến)
     "axolotl": ("axolotl pink aquarium", "kỳ giông mexico"),
@@ -273,7 +271,6 @@ ANIMAL_DATABASE = {
     "beaver": ("beaver river close up", "hải ly"),
     "hedgehog": ("hedgehog close up spines", "nhím"),
     "porcupine": ("porcupine close up spines", "nhím"),
-    "pangolin": ("pangolin close up scales wild", "tê tê"),
     "sloth": ("sloth tree close up", "con lười"),
     "armadillo": ("armadillo close up wild", "tatu"),
     "raccoon": ("raccoon close up face wild", "gấu mèo"),
@@ -689,7 +686,6 @@ async def _pexels_image_search_single(query: str, per_page: int, orientation: st
                 for pi, p in enumerate(raw_photos):
                     img_width = p.get("width", 0)
                     img_height = p.get("height", 0)
-                    p_url = p.get("url", "")
                     alt = p.get("alt", "")
 
                     if img_height == 0:
@@ -1143,8 +1139,8 @@ async def fetch_animal_sound(search_term: str, output_path: str, max_duration: f
             "-b:a", "128k",
             output_path,
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
+        subprocess.run(cmd, capture_output=True, text=True)
+
         if os.path.exists(output_path) and os.path.getsize(output_path) > 500:
             final_duration = get_video_duration(output_path)
             print(f"      [SOUND] ✓ OK: {final_duration:.1f}s")
@@ -1153,45 +1149,6 @@ async def fetch_animal_sound(search_term: str, output_path: str, max_duration: f
         return None
     except Exception as e:
         print(f"      [SOUND] ! Error: {e}")
-        return None
-
-
-async def generate_animal_sound_only(animal_name: str, output_path: str, search_term: str = "", work_dir: str = "") -> str | None:
-    """
-    Chỉ lấy tiếng kêu động vật, KHÔNG đọc tên.
-    Dùng cho video shorts.
-    
-    Args:
-        animal_name: Tên động vật (để tìm file âm thanh)
-        output_path: Đường dẫn output
-        search_term: Từ khóa search
-        work_dir: Thư mục làm việc
-    
-    Returns:
-        Đường dẫn file âm thanh hoặc None
-    """
-    print(f"      [SOUND-ONLY] Searching sound for: {animal_name}")
-    
-    try:
-        max_sound_duration = 5.0  # Tiếng động vật dài ~5 giây cho shorts
-        
-        sound_path = await fetch_animal_sound(
-            search_term or animal_name, 
-            output_path, 
-            max_duration=max_sound_duration, 
-            animal_key=animal_name
-        )
-        
-        if sound_path and os.path.exists(sound_path):
-            duration = get_video_duration(sound_path)
-            print(f"      [SOUND-ONLY] ✓ Found: {duration:.1f}s")
-            return sound_path
-        else:
-            print(f"      [SOUND-ONLY] No sound found for {animal_name}")
-            return None
-            
-    except Exception as e:
-        print(f"      [SOUND-ONLY] Error: {e}")
         return None
 
 
@@ -1208,7 +1165,6 @@ async def generate_animal_narration(animal_name: str, output_path: str, search_t
         animal_key: Tên động vật gốc tiếng Anh (để tìm file âm thanh)
     """
     import edge_tts
-    import hashlib
 
     text = f"Đây là ... {animal_name}."
 
@@ -1241,7 +1197,6 @@ async def generate_animal_narration(animal_name: str, output_path: str, search_t
         # Với silence_after = 4.0s, clip tổng ~5-6 giây
         # Tiếng kêu sẽ chạy trong phần silence sau khi đọc tên
         # Cho tiếng kêu dài gần bằng thời lượng clip (trừ narration)
-        silence_duration = 0.5
         max_sound_duration = 4.5  # Tiếng động vật dài ~4.5 giây để lấp đầy thời gian xem
         
         print(f"      [SOUND] Narration: {narration_duration:.1f}s, Max sound: {max_sound_duration:.1f}s")
@@ -1318,7 +1273,7 @@ def add_silence_to_audio(audio_path: str, output_path: str, silence_before: floa
             "-map", "[out]",
             output_path,
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        subprocess.run(cmd, capture_output=True, text=True)
         if os.path.exists(output_path) and os.path.getsize(output_path) > 100:
             return output_path
         return None
@@ -1327,29 +1282,14 @@ def add_silence_to_audio(audio_path: str, output_path: str, silence_before: floa
         return None
 
 
-def get_audio_duration(audio_path: str) -> float:
-    """Lấy duration của file audio."""
-    return get_video_duration(audio_path)
-
-
-def merge_audio_to_video(video_path: str, audio_path: str, output_path: str, animal_name: str = "", audio_once: bool = False) -> str | None:
-    """
-    Ghep narration (doc ten) vao video. Neu video goc co tieng keu that thi mix them.
-    
-    Args:
-        audio_once: Nếu True, audio chỉ phát 1 lần ở đầu (dùng cho shorts)
-    """
-    import hashlib
-
+def merge_audio_to_video(video_path: str, audio_path: str, output_path: str, animal_name: str = "") -> str | None:
+    """Ghep narration (doc ten) vao video. Neu video goc co tieng keu that thi mix them."""
     try:
         video_duration = get_video_duration(video_path)
         audio_duration = get_video_duration(audio_path)
 
-        with open(audio_path, 'rb') as f:
-            audio_hash = hashlib.md5(f.read()).hexdigest()[:8]
-
         print(f"      [MERGE] Animal: {animal_name}")
-        print(f"      [MERGE] Video dur: {video_duration:.1f}s, Audio dur: {audio_duration:.1f}s, hash: {audio_hash}")
+        print(f"      [MERGE] Video dur: {video_duration:.1f}s, Audio dur: {audio_duration:.1f}s")
 
         # Kiem tra video goc co tieng keu dong vat khong
         mix_animal_sound = False
@@ -1399,43 +1339,23 @@ def merge_audio_to_video(video_path: str, audio_path: str, output_path: str, ani
                 mix_animal_sound = False
 
         if not mix_animal_sound:
-            # Mac dinh: chi doc ten hoac tieng keu
-            if audio_once:
-                # Shorts mode: Audio chỉ phát 1 lần ở đầu, còn lại im lặng
-                print(f"      [MERGE] SHORTS mode: Audio once at start (no loop)")
-                cmd = [
-                    "ffmpeg", "-y",
-                    "-i", video_path, "-i", audio_path,
-                    "-filter_complex",
-                    f"[1:a]aresample=44100,apad=whole_dur={video_duration},volume=1.8[aout]",
-                    "-map", "0:v:0", "-map", "[aout]",
-                    "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                    "-video_track_timescale", "24000",
-                    "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
-                    "-t", str(video_duration),
-                    "-avoid_negative_ts", "make_zero",
-                    "-fflags", "+genpts",
-                    "-movflags", "+faststart",
-                    output_path,
-                ]
-            else:
-                # Normal mode: Dùng apad để pad silence, giữ nguyên volume narration
-                print(f"      [MERGE] Narration only (doc ten)")
-                cmd = [
-                    "ffmpeg", "-y",
-                    "-i", video_path, "-i", audio_path,
-                    "-filter_complex",
-                    f"[1:a]aresample=44100,apad=whole_dur={video_duration},volume=1.5[aout]",
-                    "-map", "0:v:0", "-map", "[aout]",
-                    "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                    "-video_track_timescale", "24000",
-                    "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
-                    "-t", str(video_duration),
-                    "-avoid_negative_ts", "make_zero",
-                    "-fflags", "+genpts",
-                    "-movflags", "+faststart",
-                    output_path,
-                ]
+            # Mac dinh: chi doc ten. apad de pad silence cho du do dai video.
+            print("      [MERGE] Narration only (doc ten)")
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", video_path, "-i", audio_path,
+                "-filter_complex",
+                f"[1:a]aresample=44100,apad=whole_dur={video_duration},volume=1.5[aout]",
+                "-map", "0:v:0", "-map", "[aout]",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-video_track_timescale", "24000",
+                "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+                "-t", str(video_duration),
+                "-avoid_negative_ts", "make_zero",
+                "-fflags", "+genpts",
+                "-movflags", "+faststart",
+                output_path,
+            ]
             subprocess.run(cmd, capture_output=True, text=True)
 
         if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
@@ -1574,110 +1494,6 @@ def concatenate_videos(video_paths: list[str], output_path: str,
         return None
 
 
-def create_intro_clip(
-    work_dir: str,
-    image_path: str = "images/gioi_thieu.jpeg",
-    bg_music_path: str = "sounds/nhac_nen_mo_dau_dong_vat.mp3",
-    voice_path: str = "sounds/voice_first.mp3",
-    duration: float = 7.0,
-    target_width: int = 1920,
-    target_height: int = 1080,
-) -> str | None:
-    """
-    Tạo clip mở đầu (intro) với:
-    - Hình ảnh slide có hiệu ứng zoom-in chậm
-    - Nhạc nền (cắt theo duration)
-    - Voice overlay
-
-    Returns: đường dẫn file video intro hoặc None
-    """
-    try:
-        # Resolve đường dẫn tuyệt đối
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        image_abs = os.path.join(base_dir, image_path) if not os.path.isabs(image_path) else image_path
-        bg_music_abs = os.path.join(base_dir, bg_music_path) if not os.path.isabs(bg_music_path) else bg_music_path
-        voice_abs = os.path.join(base_dir, voice_path) if not os.path.isabs(voice_path) else voice_path
-
-        for label, p in [("Image", image_abs), ("BG Music", bg_music_abs), ("Voice", voice_abs)]:
-            if not os.path.exists(p):
-                print(f"      [INTRO] ✗ {label} not found: {p}")
-                return None
-
-        os.makedirs(work_dir, exist_ok=True)
-        intro_output = os.path.join(work_dir, "intro_clip.mp4")
-
-        target_w, target_h = target_width, target_height
-
-        # Tính aspect string
-        if target_w > target_h:
-            aspect_str = "16:9"
-        elif target_w < target_h:
-            aspect_str = "9:16"
-        else:
-            aspect_str = "1:1"
-
-        # Hiệu ứng zoom-in chậm (ken burns) trên ảnh
-        # Scale ảnh lớn hơn 20% rồi zoom từ 100% -> 120% trong suốt duration
-        zoom_filter = (
-            f"scale={int(target_w * 1.3)}:{int(target_h * 1.3)}:force_original_aspect_ratio=increase,"
-            f"crop={int(target_w * 1.3)}:{int(target_h * 1.3)},"
-            f"zoompan=z='min(zoom+0.0015,1.2)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
-            f":d={int(duration * Config.FPS)}:s={target_w}x{target_h}:fps={Config.FPS},"
-            f"format=yuv420p"
-        )
-
-        # Mix audio: nhạc nền (volume thấp) + voice (volume cao)
-        # Voice bắt đầu sau 0.5s, nhạc nền fade in/out
-        fade_out_start = duration - 1.0
-        audio_filter = (
-            f"[1:a]atrim=0:{duration},volume=0.25,afade=t=in:st=0:d=1.0,afade=t=out:st={fade_out_start}:d=1.0[bg];"
-            f"[2:a]volume=1.0,adelay=500|500[voice];"
-            f"[bg][voice]amix=inputs=2:duration=first:dropout_transition=1[aout]"
-        )
-
-        cmd = [
-            "ffmpeg", "-y",
-            "-loop", "1", "-i", image_abs,       # input 0: image
-            "-i", bg_music_abs,                    # input 1: background music
-            "-i", voice_abs,                       # input 2: voice
-            "-filter_complex",
-            f"{zoom_filter}[v];{audio_filter}",
-            "-map", "[v]", "-map", "[aout]",
-            "-t", str(duration),
-            "-aspect", aspect_str,
-            "-r", str(Config.FPS),
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-            "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
-            "-movflags", "+faststart",
-            intro_output,
-        ]
-
-        print(f"      [INTRO] Creating intro clip: {duration}s, {target_w}x{target_h}")
-        print(f"      [INTRO] Image: {image_abs}")
-        print(f"      [INTRO] BG Music: {bg_music_abs}")
-        print(f"      [INTRO] Voice: {voice_abs}")
-
-        result = subprocess.run(cmd, capture_output=True, text=True)
-
-        if result.returncode != 0:
-            print(f"      [INTRO] ✗ FFmpeg error: {result.stderr[:500]}")
-            return None
-
-        if os.path.exists(intro_output) and os.path.getsize(intro_output) > 1000:
-            size_kb = os.path.getsize(intro_output) / 1024
-            final_dur = get_video_duration(intro_output)
-            print(f"      [INTRO] ✓ Created: {size_kb:.1f} KB, {final_dur:.1f}s")
-            return intro_output
-
-        print(f"      [INTRO] ✗ Output file not created or too small")
-        return None
-    except Exception as e:
-        print(f"      [INTRO] ✗ Error: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
-
-
 async def create_animal_clip(
     animal_name: str,
     work_dir: str,
@@ -1687,20 +1503,18 @@ async def create_animal_clip(
     orientation: str = "landscape",
     target_width: int = 1920,
     target_height: int = 1080,
-    skip_narration: bool = False,
 ) -> str | None:
     """
     Tạo 1 clip về 1 con vật:
-    1. Tạo audio đọc tên TRƯỚC (để biết duration) - có thể bỏ qua nếu skip_narration=True
+    1. Tạo audio đọc tên TRƯỚC (để biết duration của clip)
     2. Tìm video/ảnh thực từ Pexels
     3. Tạo video với duration >= audio
     4. Ghép lại
-    
+
     Args:
         orientation: "landscape", "portrait", hoặc "square"
         target_width: Chiều rộng đích
         target_height: Chiều cao đích
-        skip_narration: Nếu True, không đọc tên, chỉ giữ tiếng kêu động vật
     """
     # Lấy thông tin động vật: search term (tiếng Anh) và display name (tiếng Việt)
     search_term, display_name = get_animal_info(animal_name)
@@ -1720,53 +1534,29 @@ async def create_animal_clip(
     print(f"      Working dir: {clip_dir}")
     
     # ========== BƯỚC 1: Tạo audio ==========
-    audio_path = None
-    audio_result = None
-    audio_duration = 0
-    
-    if skip_narration:
-        # Chỉ lấy tiếng kêu động vật, không đọc tên
-        print(f"      [AUDIO] Skip narration, only animal sound for: {animal_name}")
-        sound_path = os.path.join(clip_dir, f"sound_{safe_name}.mp3")
-        animal_sound = await generate_animal_sound_only(
-            animal_name, sound_path, search_term=search_term, work_dir=clip_dir
-        )
-        if animal_sound:
-            audio_path = animal_sound
-            audio_duration = get_video_duration(audio_path)
-            audio_result = audio_path
-            print(f"      [AUDIO] Animal sound: {audio_duration:.1f}s")
-    else:
-        # Đọc tên + tiếng kêu (như cũ)
-        print(f"      [AUDIO] Generating narration for: {display_name}")
-        audio_path = os.path.join(clip_dir, f"narration_{safe_name}.mp3")
-        audio_result, audio_duration = await generate_animal_narration(
-            display_name, audio_path, search_term=search_term, work_dir=clip_dir, animal_key=animal_name
-        )
-        
-        if audio_result:
-            print(f"      [AUDIO] Created: {audio_path}")
-        
+    print(f"      [AUDIO] Generating narration for: {display_name}")
+    audio_path = os.path.join(clip_dir, f"narration_{safe_name}.mp3")
+    audio_result, audio_duration = await generate_animal_narration(
+        display_name, audio_path, search_term=search_term, work_dir=clip_dir, animal_key=animal_name
+    )
+
+    if audio_result:
+        print(f"      [AUDIO] Created: {audio_path}")
+
         # Thêm im lặng trước và sau audio để người xem có thời gian xem hình ảnh/video
-        if audio_result:
-            audio_with_silence = os.path.join(clip_dir, f"narration_{safe_name}_padded.mp3")
-            padded = add_silence_to_audio(audio_path, audio_with_silence, silence_before=0.5, silence_after=4.0)
-            if padded:
-                audio_path = audio_with_silence
-                audio_duration = get_video_duration(audio_path)
-                print(f"      [AUDIO] With silence: {audio_duration:.1f}s")
-    
-    # Video duration = audio duration (đã có padding trong audio)
-    # Nhưng nếu skip_narration (shorts mode), LUÔN dùng clip_duration từ người dùng
-    if skip_narration:
-        # Shorts: luôn dùng thời lượng người dùng chọn
-        target_video_duration = clip_duration
-        print(f"      [SHORTS] Force video duration: {target_video_duration:.1f}s (user setting)")
-    elif audio_result:
-        target_video_duration = audio_duration
-    else:
-        target_video_duration = clip_duration
-    
+        audio_with_silence = os.path.join(clip_dir, f"narration_{safe_name}_padded.mp3")
+        padded = add_silence_to_audio(audio_path, audio_with_silence, silence_before=0.5, silence_after=4.0)
+        if padded:
+            audio_path = audio_with_silence
+            audio_duration = get_video_duration(audio_path)
+            print(f"      [AUDIO] With silence: {audio_duration:.1f}s")
+
+
+    # Video duration = audio duration (đã có padding trong audio).
+    # Khong tao duoc audio thi lui ve clip_duration.
+    target_video_duration = audio_duration if audio_result else clip_duration
+
+
     print(f"      Target video duration: {target_video_duration:.1f}s")
     
     # ========== BƯỚC 2: Tìm và tạo video ==========
@@ -1838,8 +1628,7 @@ async def create_animal_clip(
     print(f"        Video file: {media_path}")
     print(f"        Audio file: {audio_path}")
     print(f"        Output file: {final_clip}")
-    print(f"        Skip narration (shorts): {skip_narration}")
-    
+
     # Kiểm tra file tồn tại trước khi merge
     if not os.path.exists(media_path):
         print(f"      [!] Video file not found: {media_path}")
@@ -1847,10 +1636,10 @@ async def create_animal_clip(
     if not os.path.exists(audio_path):
         print(f"      [!] Audio file not found: {audio_path}")
         return None
-    
-    # Shorts mode: audio_once=True để tiếng kêu chỉ phát 1 lần
-    result = merge_audio_to_video(media_path, audio_path, final_clip, animal_name, audio_once=skip_narration)
-    
+
+    result = merge_audio_to_video(media_path, audio_path, final_clip, animal_name)
+
+
     if result:
         print(f"      [DONE] Clip created for {animal_name}: {result}")
     else:

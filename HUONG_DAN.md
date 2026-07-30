@@ -4,146 +4,104 @@
 
 - macOS (da test tren Apple M1)
 - Python 3.12+
-- ffmpeg (`brew install ffmpeg`)
-- Ollama (`brew install ollama`)
+- ffmpeg (`brew install ffmpeg`) — bat buoc, dung cho moi khau xu ly video
+
+Khong can Ollama, khong can HuggingFace.
 
 ## Cai Dat Lan Dau
 
-### Buoc 1: Clone va vao thu muc
-
 ```bash
 cd /Users/admin/Documents/video
-```
-
-### Buoc 2: Tao virtual environment va cai thu vien
-
-```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-pip install yt-dlp    # (tuy chon) de tai video tu YouTube/TikTok
 ```
 
-### Buoc 3: Tai model AI cho Ollama
+## Cau Hinh
 
-```bash
-ollama pull llama3.1
-```
-
-### Buoc 4: Cau hinh API key
-
-Sua file `.env`:
+Copy `.env.example` thanh `.env` roi dien:
 
 ```env
-# Bat buoc cho che do AI Art:
-HF_TOKEN=hf_xxxxx    # Lay tai https://huggingface.co/settings/tokens (mien phi)
+# BAT BUOC - de tim hinh anh/video thuc
+PEXELS_API_KEY=xxxxx        # https://www.pexels.com/api/ (mien phi)
 
-# Bat buoc cho che do Video Dong Vat (hinh/video thuc):
-PEXELS_API_KEY=xxxxx # Lay tai https://www.pexels.com/api/ (mien phi)
+# TUY CHON - cho nut "AI viet gium" tieu de/mo ta/tag
+LLM_PROVIDER=anthropic      # anthropic | openai | gemini | aics
+LLM_API_KEY=sk-...
+
+# TUY CHON - de dang video len YouTube/Facebook
+OAUTH_REDIRECT_BASE=http://localhost:5000
 ```
 
-**Cach lay Pexels API Key:**
-1. Vao https://www.pexels.com/api/
-2. Click "Get Started" -> Dang ky tai khoan (mien phi)
-3. Vao https://www.pexels.com/api/new/ de tao API key
-4. Copy key va dan vao file `.env`
-
-Cac thong so khac co the giu mac dinh.
+**Lay Pexels API Key:** vao https://www.pexels.com/api/ -> Get Started -> dang ky ->
+https://www.pexels.com/api/new/ -> copy key dan vao `.env`.
 
 ## Chay Tool
 
-### Cach 1: Web UI (khuyen dung)
-
-Mo **2 terminal**:
-
-**Terminal 1** - chay Ollama:
 ```bash
-ollama serve
-```
-
-**Terminal 2** - chay Web UI:
-```bash
-cd /Users/admin/Documents/video
 source venv/bin/activate
 python app.py
 ```
 
 Mo trinh duyet: **http://localhost:5000**
 
-### 2 Che Do Tao Video:
+Chi can MOT terminal.
 
-1. **🎨 AI Art (HuggingFace)**: Tao hinh anh bang AI
-   - Phu hop: video truyen thuyet, phim, sang tao
-   - Can: HF_TOKEN
-   
-2. **📷 Hinh/Video Thuc (Pexels)**: Tim hinh anh/video thuc tu Internet
-   - Phu hop: video dong vat, thien nhien, giao duc
-   - Can: PEXELS_API_KEY
-   - Co am thanh doc ten dong vat
+## Ba Tab Trong Giao Dien
 
-### Cach 2: Command line
+### 1. 🎬 Video Thuong
 
-```bash
-source venv/bin/activate
+Tao video dong vat hoac thuc vat. Chon danh muc, nhap chu de (hoac nhap thang danh
+sach cach nhau bang dau phay: `lion, tiger, elephant`), chon ty le khung hinh va so
+loai moi video.
 
-# Tao video AI
-python main.py generate "chu de video" -n 3
+- **Dong vat**: doc ten bang giong Viet + tieng keu that (neu co file trong `sounds/`)
+- **Thuc vat**: doc ten + nhac nen `sounds/plants/plants.mp3`
 
-# Cat video tu file local
-python main.py split /duong/dan/video.mp4 -n 5
+Nhap **tieng Anh** cho ket qua tim kiem chinh xac hon.
 
-# Cat video tu URL YouTube/TikTok
-python main.py split "https://youtube.com/watch?v=xxx" -s 60
+### 2. 🎞️ Ghep Nhieu Video
 
-# Che do interactive (menu lua chon)
-python main.py
-```
+Tai len nhieu mp4, moi cai chon thoi luong rieng (ngan hon thi tu lap lai, dai hon
+thi cat bot), them 1 file audio, chon hieu ung. Tat ca duoc chuan hoa ve cung
+resolution va 30fps truoc khi noi.
 
-## Cau Truc File .env
+### 3. 📡 Kenh Dang Bai
 
-```env
-# Kich thuoc video (mac dinh: dung 9:16 cho short)
-VIDEO_WIDTH=1080
-VIDEO_HEIGHT=1920
-FPS=24
-SECONDS_PER_IMAGE=5
+Ket noi YouTube / Facebook roi dang video vua tao. Xem
+[docs/youtube-setup.md](docs/youtube-setup.md) va
+[docs/facebook-setup.md](docs/facebook-setup.md).
 
-# Giong doc tieng Viet
-TTS_VOICE=vi-VN-HoaiMyNeural       # Nu
-# TTS_VOICE=vi-VN-NamMinhNeural    # Nam
-TTS_RATE=+0%                        # Tang/giam toc do: +10%, -10%
+## Short/Reel hay Video Dai?
 
-# Ollama
-OLLAMA_MODEL=llama3.1
-OLLAMA_URL=http://localhost:11434
+Khong co tham so API nao khai bao duoc — hai nen tang tu phan loai theo chinh file:
 
-# Hugging Face (mien phi) - cho che do AI Art
-HF_TOKEN=hf_xxxxx
-HF_IMAGE_MODEL=black-forest-labs/FLUX.1-schnell
+| | Thanh Short / Reel khi |
+|---|---|
+| YouTube | Khung hinh doc hoac vuong **va** do dai <= 3 phut |
+| Facebook | Khung hinh doc |
 
-# Pexels API (mien phi) - cho che do Video Dong Vat
-PEXELS_API_KEY=xxxxx
-
-# Thu muc xuat
-OUTPUT_DIR=./output
-TEMP_DIR=./temp
-MAX_PARALLEL_VIDEOS=3
-```
+Nen thu quyet dinh la o **"Ty le khung hinh"** luc tao video, khong phai luc dang.
 
 ## Xu Ly Loi Thuong Gap
 
 | Loi | Nguyen nhan | Cach sua |
 |-----|-------------|----------|
-| `Connection refused :11434` | Ollama chua chay | Chay `ollama serve` o terminal khac |
-| `HTTP 401` (HuggingFace) | Token sai/het han | Tao token moi tai huggingface.co/settings/tokens |
+| `Thieu PEXELS_API_KEY` | Chua dien key | Dien vao `.env` roi chay lai `python app.py` |
 | `HTTP 401` (Pexels) | API key sai | Tao key moi tai pexels.com/api |
-| `HTTP 429` | Rate limit | Doi 1-2 phut roi chay lai |
-| `HTTP 503` | Model dang load | Tu dong retry, doi 20-30s |
-| `TTS error: Cannot connect` | Mat mang | Kiem tra ket noi internet |
-| `yt-dlp error` | URL sai hoac video private | Kiem tra URL, dam bao video public |
+| `HTTP 429` | Rate limit Pexels (200 req/gio) | Doi 1-2 phut |
+| `TTS error: Cannot connect` | Mat mang | Edge TTS can internet |
+| `Chua khai LLM_API_KEY` | Chua cau hinh AI viet gium | Dien `LLM_API_KEY` vao `.env` |
+| `redirect_uri_mismatch` | Redirect URI ben Google/Meta sai | Copy lai chuoi trong tab Kenh Dang Bai |
+| `invalid_grant` (YouTube) | App con o che do Testing | Publish app roi ket noi lai |
 | `No module named X` | Chua cai thu vien | `source venv/bin/activate && pip install -r requirements.txt` |
+| `ffmpeg: command not found` | Chua cai ffmpeg | `brew install ffmpeg` |
+
+Sua `.env` xong phai **tat han roi chay lai** `python app.py` — bien moi truong chi doc
+mot lan luc khoi dong.
 
 ## Video Xuat Ra O Dau?
 
-- Video AI tao: `./output/*.mp4`
-- Video da cat: `./output/splits/*.mp4`
+`./output/*.mp4`
+
+Thu muc `./temp/` duoc giu lai co y de debug (xem log tung clip). Xoa tay khi can.

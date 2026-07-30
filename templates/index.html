@@ -340,6 +340,9 @@
             <button type="button" class="tab-btn" onclick="switchTab('multi')">
                 🎞️ Ghep Nhieu Video
             </button>
+            <button type="button" class="tab-btn" onclick="switchTab('channels')">
+                📡 Kenh Dang Bai
+            </button>
         </div>
 
         <!-- ============== TAB 1: VIDEO THƯỜNG ============== -->
@@ -493,6 +496,103 @@
             </button>
         </div>
 
+        <!-- ============== TAB 3: KENH DANG BAI ============== -->
+        <div class="tab-content" id="tab-channels">
+            <div id="channel-flash" style="display: none; border-radius: 10px; padding: 12px 14px; margin-bottom: 15px; font-size: 0.9em;"></div>
+
+            <!-- The cua tung nen tang -->
+            <div id="channel-cards"></div>
+
+            <!-- ===== Dang video ===== -->
+            <div style="background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 12px; padding: 18px; margin-top: 20px;">
+                <h3 style="margin: 0 0 14px; color: #00d2ff;">📤 Dang video len kenh</h3>
+
+                <div class="form-group">
+                    <label>Video da tao</label>
+                    <select id="pub-file"><option value="">-- Dang tai danh sach --</option></select>
+                    <div style="margin-top: 6px;">
+                        <button type="button" onclick="loadOutputs()"
+                                style="background: #2a2a4e; border: none; color: #aaa; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 0.8em;">
+                            ↻ Tai lai danh sach
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Dang len</label>
+                    <div style="display: flex; gap: 18px; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="checkbox" id="pub-ch-youtube" style="width: auto; accent-color: #ff0033;" onchange="onPublishChannelToggle()">
+                            <span>▶️ YouTube</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="checkbox" id="pub-ch-facebook" style="width: auto; accent-color: #1877f2;" onchange="onPublishChannelToggle()">
+                            <span>📘 Facebook</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group" id="pub-privacy-group">
+                    <label>Che do hien thi tren YouTube</label>
+                    <select id="pub-privacy">
+                        <option value="private">🔒 Rieng tu (chi minh ban)</option>
+                        <option value="unlisted">🔗 Khong cong khai (co link moi xem duoc)</option>
+                        <option value="public">🌍 Cong khai</option>
+                    </select>
+                </div>
+
+                <!-- Noi dung: dung chung / rieng tung kenh -->
+                <div class="form-group">
+                    <label>Noi dung bai dang</label>
+                    <div id="pub-content-tabs" style="display: flex; gap: 8px; margin-bottom: 10px;"></div>
+
+                    <input type="text" id="pub-title" placeholder="Tieu de" style="margin-bottom: 8px;" oninput="onContentInput()">
+                    <textarea id="pub-description" placeholder="Mo ta" rows="3"
+                              style="width: 100%; margin-bottom: 8px; background: #0f0f1e; border: 1px solid #2a2a3e; border-radius: 8px; padding: 12px; color: #eee; font-family: inherit; font-size: 0.95em;"
+                              oninput="onContentInput()"></textarea>
+                    <input type="text" id="pub-tags" placeholder="Tags cho tim kiem YouTube, cach nhau bang dau phay (nguoi xem KHONG thay)"
+                           style="margin-bottom: 8px;" oninput="onContentInput()">
+                    <input type="text" id="pub-hashtags" placeholder="Hashtag hien trong mo ta, cach nhau bang dau phay (toi da 10)"
+                           oninput="onContentInput()">
+
+                    <div style="margin-top: 12px; padding: 12px; background: #12122a; border: 1px solid #2a2a4e; border-radius: 8px;">
+                        <label style="display: block; color: #aaa; font-size: 0.82em; margin-bottom: 6px;">
+                            Tu khoa dinh huong cho AI (tuy chon)
+                        </label>
+                        <input type="text" id="pub-ai-keywords" placeholder="VD: dong vat hoang da, thien nhien"
+                               style="margin-bottom: 6px;">
+                        <div style="color: #99aacc; font-size: 0.78em;">
+                            AI se xem <b>4 khung hinh</b> trich tu chinh video de viet.
+                            Tu khoa chi de dinh huong - neu khong khop noi dung thuc, AI se bo qua
+                            chu khong bia.
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                        <button type="button" id="btn-ai-meta" onclick="suggestMeta()"
+                                style="background: linear-gradient(135deg, #7b2ff7, #00d2ff); border: none; color: white; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 0.85em; font-weight: 600;">
+                            ✨ AI viet gium
+                        </button>
+                        <span id="ai-model-note" style="color: #667; font-size: 0.75em;"></span>
+                        <button type="button" onclick="resetToShared()" id="btn-reset-shared"
+                                style="display: none; background: #2a2a4e; border: none; color: #aaa; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 0.85em;">
+                            Quay ve dung chung
+                        </button>
+                    </div>
+                </div>
+
+                <div class="info-box" style="background: #1a1a3a; border-color: #2a2a4a; font-size: 0.82em; color: #99aacc;">
+                    • <b>Tags</b> chi de YouTube tim kiem, nguoi xem khong thay. <b>Hashtag</b> hien trong mo ta - hai thu khac nhau.<br>
+                    • Facebook khong co truong tag; video doc bi xep thanh Reel nen tieu de + mo ta + hashtag duoc gop lam mot caption.<br>
+                    • Quota YouTube mac dinh ~6 video/ngay. Facebook gioi han 1 GB moi lan dang.
+                </div>
+
+                <button class="btn btn-primary" id="btn-publish" onclick="startPublish()">
+                    📤 Dang Video
+                </button>
+            </div>
+        </div>
+
         <!-- Progress (shared) -->
         <div class="progress-area" id="progress-area">
             <div class="progress-bar-container">
@@ -509,20 +609,23 @@
     </div>
 
     <script>
-        const currentMode = 'real';
         let currentCategory = 'animal';
         let currentTab = 'normal';
 
         // Tab switching
         function switchTab(tab) {
             currentTab = tab;
-            const tabNames = ['normal', 'multi'];
+            const tabNames = ['normal', 'multi', 'channels'];
             document.querySelectorAll('.tab-btn').forEach((btn, i) => {
                 btn.classList.toggle('active', tab === tabNames[i]);
             });
             tabNames.forEach(t => {
                 document.getElementById('tab-' + t).classList.toggle('active', tab === t);
             });
+            if (tab === 'channels') {
+                loadChannels();
+                loadOutputs();
+            }
         }
 
         // Category change (for normal tab)
@@ -614,7 +717,23 @@
                 item.innerHTML = `
                     <span class="name">${name}</span>
                     <a href="/download/${encodeURIComponent(f)}" target="_blank">Tai Xuong</a>
+                    <a href="#" style="margin-left: 10px;" onclick="publishThis(${JSON.stringify(f).replace(/"/g, '&quot;')}); return false;">📤 Dang Len Kenh</a>
                 `;
+                list.appendChild(item);
+            });
+            document.getElementById('results').classList.add('active');
+        }
+
+        function showPublishResults(results) {
+            const list = document.getElementById('results-list');
+            list.innerHTML = '';
+            results.forEach(r => {
+                const meta = (typeof PROVIDER_META !== 'undefined' && PROVIDER_META[r.provider]) || { label: r.provider };
+                const item = document.createElement('div');
+                item.className = 'result-item';
+                item.innerHTML = r.ok
+                    ? `<span class="name">✓ ${meta.label}</span><a href="${r.url}" target="_blank">Mo bai dang</a>`
+                    : `<span class="name" style="color:#ff8899">✗ ${meta.label}: ${r.error}</span>`;
                 list.appendChild(item);
             });
             document.getElementById('results').classList.add('active');
@@ -668,6 +787,9 @@
                 if (data.files && data.files.length > 0) {
                     showResults(data.files);
                 }
+                if (data.results && data.results.length > 0) {
+                    showPublishResults(data.results);
+                }
             } else if (data.type === 'error') {
                 addLog(data.message, 'error');
             }
@@ -688,7 +810,7 @@
             await streamSSE('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, num, mode: currentMode, orientation, animals_per_video: animalsPerVideo, category: currentCategory }),
+                body: JSON.stringify({ prompt, num, orientation, animals_per_video: animalsPerVideo, category: currentCategory }),
             });
 
             btn.disabled = false;
@@ -823,6 +945,439 @@
             btn.disabled = false;
             btn.textContent = '🎞️ Ghep Nhieu Video Lai';
         }
+
+        // ============ KENH DANG BAI ============
+        const PROVIDERS = ['youtube', 'facebook'];
+        const PROVIDER_META = {
+            youtube: { label: 'YouTube', icon: '▶️', color: '#ff0033',
+                       idField: 'client_id', secretField: 'client_secret',
+                       idLabel: 'Client ID', secretLabel: 'Client Secret',
+                       console: 'https://console.cloud.google.com/apis/credentials' },
+            facebook: { label: 'Facebook', icon: '📘', color: '#1877f2',
+                        idField: 'app_id', secretField: 'app_secret',
+                        idLabel: 'App ID', secretLabel: 'App Secret',
+                        console: 'https://developers.facebook.com/apps/' },
+        };
+
+        let channelState = {};
+        let availableState = {};
+
+        function flash(kind, msg) {
+            const box = document.getElementById('channel-flash');
+            const colors = {
+                success: ['#12301c', '#2a6a3a', '#88dd99'],
+                warning: ['#302a12', '#6a5a2a', '#ddcc88'],
+                error:   ['#301218', '#6a2a3a', '#dd8899'],
+            };
+            const [bg, border, fg] = colors[kind] || colors.warning;
+            box.style.display = 'block';
+            box.style.background = bg;
+            box.style.border = '1px solid ' + border;
+            box.style.color = fg;
+            box.textContent = msg;
+        }
+
+        async function loadChannels() {
+            try {
+                const [chRes, avRes] = await Promise.all([
+                    fetch('/api/me/channels'),
+                    fetch('/api/me/channels/available'),
+                ]);
+                channelState = await chRes.json();
+                availableState = await avRes.json();
+                renderChannelCards();
+            } catch (e) {
+                flash('error', 'Khong tai duoc cau hinh kenh: ' + e);
+            }
+        }
+
+        // Badge 4 muc. Luon hien kem moc gio - token co the bi thu hoi bat cu luc nao,
+        // dau tich vinh vien la noi doi.
+        function badgeFor(cfg) {
+            if (!cfg.configured) return { text: 'Chua khai ung dung', color: '#777' };
+            if (cfg.verify_error) return { text: 'Can ket noi lai: ' + cfg.verify_error, color: '#ff6644' };
+            if (!cfg.connected) return { text: 'Chua ket noi', color: '#ffaa00' };
+            if (cfg.verified_at) {
+                const when = new Date(cfg.verified_at).toLocaleString('vi-VN');
+                return { text: `Da ket noi - kiem tra luc ${when}`, color: '#44dd77' };
+            }
+            return { text: 'Da ket noi (chua kiem tra)', color: '#ffaa00' };
+        }
+
+        function renderChannelCards() {
+            const wrap = document.getElementById('channel-cards');
+            wrap.innerHTML = '';
+
+            PROVIDERS.forEach(p => {
+                const meta = PROVIDER_META[p];
+                const cfg = channelState[p] || {};
+                const av = availableState[p] || {};
+                const badge = badgeFor(cfg);
+                const target = p === 'youtube'
+                    ? (cfg.channel_title || cfg.channel_id || '')
+                    : (cfg.page_name || cfg.page_id || '');
+
+                const card = document.createElement('div');
+                card.style.cssText = 'background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 12px; padding: 18px; margin-bottom: 14px;';
+                card.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <span style="font-size: 1.1em; font-weight: 700; color: ${meta.color};">${meta.icon} ${meta.label}</span>
+                            ${target ? `<span style="color: #aaa; margin-left: 10px;">${target}</span>` : ''}
+                        </div>
+                        <span style="color: ${badge.color}; font-size: 0.85em; font-weight: 600;">● ${badge.text}</span>
+                    </div>
+
+                    <div style="margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" onclick="connectChannel('${p}')" ${av.ready ? '' : 'disabled'}
+                                style="background: ${av.ready ? meta.color : '#333'}; border: none; color: white; border-radius: 8px; padding: 8px 16px; cursor: ${av.ready ? 'pointer' : 'not-allowed'}; font-weight: 600; font-size: 0.85em;"
+                                title="${av.ready ? '' : 'Khai day du ung dung truoc'}">
+                            ${cfg.connected ? 'Ket noi lai' : 'Ket noi'}
+                        </button>
+                        ${cfg.connected ? `
+                        <button type="button" onclick="verifyChannel('${p}')"
+                                style="background: #2a2a4e; border: none; color: #ccc; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 0.85em;">
+                            Kiem tra lai
+                        </button>
+                        <button type="button" onclick="disconnectChannel('${p}')"
+                                style="background: #4e2a2a; border: none; color: #ffaaaa; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 0.85em;">
+                            Ngat ket noi
+                        </button>` : ''}
+                        <button type="button" onclick="toggleAppForm('${p}')"
+                                style="background: #2a2a4e; border: none; color: #aaa; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 0.85em;">
+                            ⚙ Khai ung dung
+                        </button>
+                    </div>
+
+                    <div id="app-form-${p}" style="display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid #2a2a3e;">
+                        <div class="form-group">
+                            <label>Redirect URI - dan Y HET chuoi nay vao ${meta.label}</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="redirect-${p}" value="${av.redirect_uri || ''}" readonly
+                                       style="flex: 1; background: #0a0a14; color: #00d2ff; font-family: monospace; font-size: 0.85em;">
+                                <button type="button" onclick="copyRedirect('${p}')"
+                                        style="background: #2a2a4e; border: none; color: #ccc; border-radius: 8px; padding: 0 14px; cursor: pointer;">Copy</button>
+                            </div>
+                            <div style="color: #ffaa00; font-size: 0.78em; margin-top: 5px;">
+                                Go tay chuoi nay la nguon loi so mot. Ca hai nen tang chi bao
+                                <code>redirect_uri_mismatch</code> chu khong noi sai o dau.
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>${meta.idLabel}</label>
+                            <input type="text" id="appid-${p}" value="${cfg[meta.idField] || ''}" placeholder="${meta.idLabel}">
+                        </div>
+                        <div class="form-group">
+                            <label>${meta.secretLabel} ${cfg[meta.secretField + '_set'] ? '<span style="color:#44dd77">(da luu - de trong = giu nguyen)</span>' : ''}</label>
+                            <input type="password" id="appsecret-${p}" placeholder="${cfg[meta.secretField + '_set'] ? '••••••••  de trong de giu nguyen' : meta.secretLabel}">
+                        </div>
+                        ${p === 'facebook' ? `
+                        <div class="form-group">
+                            <label>Page ID goi y (bat buoc neu ban quan tri nhieu Trang)</label>
+                            <input type="text" id="pagehint-facebook" value="${cfg.page_id_hint || ''}" placeholder="VD: 1234567890">
+                            <div style="color: #99aacc; font-size: 0.78em; margin-top: 5px;">
+                                Trang thuoc Business Portfolio thuong khong duoc <code>me/accounts</code> liet ke,
+                                du quyen da du. Khi do phai biet truoc Page ID.
+                            </div>
+                        </div>` : ''}
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <button type="button" onclick="saveApp('${p}')"
+                                    style="background: ${meta.color}; border: none; color: white; border-radius: 8px; padding: 8px 18px; cursor: pointer; font-weight: 600;">
+                                Luu
+                            </button>
+                            <a href="${meta.console}" target="_blank" style="color: #00d2ff; font-size: 0.85em;">Mo trang quan ly app ↗</a>
+                        </div>
+                    </div>
+                `;
+                wrap.appendChild(card);
+            });
+        }
+
+        function toggleAppForm(p) {
+            const el = document.getElementById('app-form-' + p);
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function copyRedirect(p) {
+            const input = document.getElementById('redirect-' + p);
+            input.select();
+            navigator.clipboard.writeText(input.value).then(
+                () => flash('success', 'Da copy Redirect URI'),
+                () => document.execCommand('copy')
+            );
+        }
+
+        async function saveApp(p) {
+            const meta = PROVIDER_META[p];
+            // Bi mat de trong = giu nguyen, khong phai xoa
+            const secret = document.getElementById('appsecret-' + p).value;
+            const body = {};
+            body[meta.idField] = document.getElementById('appid-' + p).value.trim();
+            if (secret !== '') body[meta.secretField] = secret;
+            if (p === 'facebook') {
+                body.page_id_hint = document.getElementById('pagehint-facebook').value.trim();
+            }
+
+            const res = await fetch(`/api/me/channels/${p}/app`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const data = await res.json();
+            if (!res.ok) { flash('error', data.error || 'Luu that bai'); return; }
+            flash('success', `Da luu ung dung ${meta.label}`);
+            await loadChannels();
+            document.getElementById('app-form-' + p).style.display = 'block';
+        }
+
+        async function connectChannel(p) {
+            const res = await fetch(`/api/me/channels/${p}/connect`);
+            const data = await res.json();
+            if (!res.ok) { flash('error', data.error || 'Khong tao duoc lien ket'); return; }
+            window.location.href = data.url;
+        }
+
+        async function verifyChannel(p) {
+            flash('warning', 'Dang kiem tra...');
+            const res = await fetch(`/api/me/channels/${p}/verify`, { method: 'POST' });
+            const data = await res.json();
+            flash(data.ok ? 'success' : 'error',
+                  data.ok ? `${PROVIDER_META[p].label}: ${data.detail}` : data.detail);
+            await loadChannels();
+        }
+
+        async function disconnectChannel(p) {
+            if (!confirm(`Ngat ket noi ${PROVIDER_META[p].label}?\n\nToken se bi xoa nhung Client ID / App ID da khai van duoc giu lai.`)) return;
+            await fetch(`/api/me/channels/${p}`, { method: 'DELETE' });
+            flash('success', `Da ngat ${PROVIDER_META[p].label}`);
+            await loadChannels();
+        }
+
+        // ---- Danh sach video ----
+        async function loadOutputs(selectPath) {
+            const sel = document.getElementById('pub-file');
+            const keep = selectPath || sel.value;
+            try {
+                const res = await fetch('/api/outputs');
+                const data = await res.json();
+                sel.innerHTML = '';
+                if (!data.files.length) {
+                    sel.innerHTML = '<option value="">-- Chua co video nao trong output/ --</option>';
+                    return;
+                }
+                data.files.forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f.path;
+                    opt.textContent = `${f.name}  (${f.size_mb} MB)`;
+                    sel.appendChild(opt);
+                });
+                if (keep) sel.value = keep;
+                if (!sel.value) sel.selectedIndex = 0;
+            } catch (e) {
+                sel.innerHTML = '<option value="">-- Loi tai danh sach --</option>';
+            }
+        }
+
+        function publishThis(path) {
+            switchTab('channels');
+            loadOutputs(path);
+            document.getElementById('tab-channels').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // ---- Noi dung: dung chung / rieng tung kenh ----
+        // Mac dinh dung chung. Ban rieng CHI sinh ra khi go ky tu dau tien - tao som hon
+        // thi mot ban rieng rong se am tham che mat noi dung chung.
+        let contentScope = 'shared';
+        let sharedContent = { title: '', description: '', tags: '', hashtags: '' };
+        const perChannelContent = {};   // provider -> {title, description, tags, hashtags}
+
+        function readForm() {
+            return {
+                title: document.getElementById('pub-title').value,
+                description: document.getElementById('pub-description').value,
+                tags: document.getElementById('pub-tags').value,
+                hashtags: document.getElementById('pub-hashtags').value,
+            };
+        }
+
+        function writeForm(c) {
+            document.getElementById('pub-title').value = c.title || '';
+            document.getElementById('pub-description').value = c.description || '';
+            document.getElementById('pub-tags').value = c.tags || '';
+            document.getElementById('pub-hashtags').value = c.hashtags || '';
+        }
+
+        function onContentInput() {
+            if (contentScope === 'shared') {
+                sharedContent = readForm();
+            } else {
+                perChannelContent[contentScope] = readForm();   // sinh ban rieng tu day
+                renderContentTabs();
+            }
+        }
+
+        function selectedChannels() {
+            return PROVIDERS.filter(p => document.getElementById('pub-ch-' + p).checked);
+        }
+
+        function switchContentScope(scope) {
+            // Luu lai o cu truoc khi doi
+            if (contentScope === 'shared') sharedContent = readForm();
+            else if (perChannelContent[contentScope]) perChannelContent[contentScope] = readForm();
+
+            contentScope = scope;
+            if (scope === 'shared') writeForm(sharedContent);
+            else writeForm(perChannelContent[scope] || sharedContent);
+
+            document.getElementById('btn-reset-shared').style.display = scope === 'shared' ? 'none' : 'inline-block';
+            renderContentTabs();
+        }
+
+        function resetToShared() {
+            if (contentScope === 'shared') return;
+            delete perChannelContent[contentScope];
+            switchContentScope('shared');
+        }
+
+        function renderContentTabs() {
+            const wrap = document.getElementById('pub-content-tabs');
+            const chans = selectedChannels();
+            wrap.innerHTML = '';
+
+            const mk = (scope, label) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = label;
+                const active = contentScope === scope;
+                b.style.cssText = `background: ${active ? '#7b2ff7' : '#2a2a4e'}; border: none; color: ${active ? '#fff' : '#aaa'}; border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: 0.82em; font-weight: ${active ? '700' : '400'};`;
+                b.onclick = () => switchContentScope(scope);
+                wrap.appendChild(b);
+            };
+
+            mk('shared', 'Dung chung');
+            chans.forEach(p => {
+                const own = perChannelContent[p] ? ' •' : '';
+                mk(p, PROVIDER_META[p].label + own);
+            });
+        }
+
+        function onPublishChannelToggle() {
+            const chans = selectedChannels();
+            // Tab cua kenh vua bi bo tick phai tu quay ve "Dung chung", neu khong user
+            // go vao ban rieng cua kenh khong dang va noi dung do bi loc bo luc xuat.
+            if (contentScope !== 'shared' && !chans.includes(contentScope)) {
+                switchContentScope('shared');
+                return;
+            }
+            document.getElementById('pub-privacy-group').style.display =
+                chans.includes('youtube') ? 'block' : 'none';
+            renderContentTabs();
+        }
+
+        async function suggestMeta() {
+            // AI xem khung hinh trich tu chinh video -> bat buoc phai chon file
+            const file = document.getElementById('pub-file').value;
+            if (!file) { alert('Chon video truoc de AI xem khung hinh.'); return; }
+
+            const keywords = document.getElementById('pub-ai-keywords').value.trim();
+            const btn = document.getElementById('btn-ai-meta');
+            const note = document.getElementById('ai-model-note');
+            btn.disabled = true;
+            const old = btn.textContent;
+            btn.textContent = '⏳ Dang trich khung hinh va viet...';
+            note.textContent = '';
+            try {
+                const res = await fetch('/api/publish-meta/suggest', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file, keywords }),
+                });
+                const data = await res.json();
+                if (!res.ok) { flash('error', data.error || 'AI that bai'); return; }
+                writeForm({
+                    title: data.title,
+                    description: data.description,
+                    tags: (data.tags || []).join(', '),
+                    hashtags: (data.hashtags || []).join(', '),
+                });
+                onContentInput();
+                if (data.model) note.textContent = data.model;
+                flash('success', 'AI da viet xong - kiem tra lai truoc khi dang');
+            } catch (e) {
+                flash('error', 'Loi goi AI: ' + e);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = old;
+            }
+        }
+
+        function splitList(s) {
+            return (s || '').split(',').map(x => x.trim()).filter(Boolean);
+        }
+
+        function packContent(c) {
+            return {
+                title: c.title || '',
+                description: c.description || '',
+                tags: splitList(c.tags),
+                hashtags: splitList(c.hashtags),
+            };
+        }
+
+        async function startPublish() {
+            onContentInput();   // chot o dang go
+
+            const file = document.getElementById('pub-file').value;
+            const channels = selectedChannels();
+            if (!file) { alert('Chon video can dang!'); return; }
+            if (!channels.length) { alert('Chon it nhat 1 kenh!'); return; }
+
+            const notReady = channels.filter(p => !(channelState[p] || {}).connected);
+            if (notReady.length) {
+                alert('Chua ket noi: ' + notReady.map(p => PROVIDER_META[p].label).join(', '));
+                return;
+            }
+
+            const per = {};
+            channels.forEach(p => {
+                if (perChannelContent[p]) per[p] = packContent(perChannelContent[p]);
+            });
+
+            const btn = document.getElementById('btn-publish');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Dang dang...';
+
+            await streamSSE('/api/publish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    file,
+                    channels,
+                    privacy: document.getElementById('pub-privacy').value,
+                    shared: packContent(sharedContent),
+                    per_channel: per,
+                }),
+            });
+
+            btn.disabled = false;
+            btn.textContent = '📤 Dang Video';
+            loadChannels();
+        }
+
+        // ---- Khoi dong: xu ly redirect tu callback ----
+        document.addEventListener('DOMContentLoaded', function() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('tab') === 'channels') {
+                switchTab('channels');
+                const status = params.get('status');
+                const msg = params.get('msg');
+                if (status && msg) flash(status, msg);
+                // Don URL de F5 khong hien lai thong bao cu
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+            renderContentTabs();
+            onPublishChannelToggle();
+        });
 
     </script>
 </body>

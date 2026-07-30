@@ -23,3 +23,7 @@ temp/
 .idea/
 .vscode/
 *.swp
+
+# Social channels (chua token da ma hoa)
+channels.json
+.jwt_secret

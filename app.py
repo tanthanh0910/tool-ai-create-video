@@ -14,17 +14,18 @@ import uuid
 from flask import Flask, render_template, request, Response, send_file
 
 from config import Config
-from generators.script_generator import generate_scripts
-from generators.video_assembler import create_video_from_scenes
 from generators.animal_video_generator import (
     generate_animal_scripts,
     PEXELS_API_KEY,
 )
 from generators.plant_video_generator import (
     generate_plant_scripts,
+    reset_used_videos,
 )
+from social.routes import bp as social_bp
 
 app = Flask(__name__)
+app.register_blueprint(social_bp)
 
 
 # ---------- Helpers ----------
@@ -68,8 +69,12 @@ def index():
 
 @app.route("/download/<path:filepath>")
 def download(filepath):
-    if os.path.exists(filepath) and filepath.startswith(("./output", "output")):
-        return send_file(filepath, as_attachment=True)
+    # Phai so tren duong dan da resolve: startswith("output") van cho lot
+    # "output/../../etc/passwd".
+    out_dir = os.path.realpath(Config.OUTPUT_DIR)
+    target = os.path.realpath(filepath)
+    if os.path.commonpath([out_dir, target]) == out_dir and os.path.isfile(target):
+        return send_file(target, as_attachment=True)
     return "File not found", 404
 
 
@@ -77,119 +82,23 @@ def download(filepath):
 
 @app.route("/api/generate", methods=["POST"])
 def api_generate():
+    """Tao video dong vat / thuc vat voi hinh anh + video THUC tu Pexels."""
     data = request.json
     prompt = data.get("prompt", "")
     num = data.get("num", 3)
-    mode = data.get("mode", "ai")  # "ai" = tạo ảnh AI, "real" = ảnh/video thực
     orientation = data.get("orientation", "landscape")  # "landscape", "portrait", "square"
-    animals_per_video = data.get("animals_per_video", 10)  # Số động vật/thực vật mỗi video
-    category = data.get("category", "animal")  # "animal" hoặc "plant"
+    items_per_video = data.get("animals_per_video", 10)  # So dong vat/thuc vat moi video
+    category = data.get("category", "animal")  # "animal" hoac "plant"
 
-    # Mode real -> dùng Pexels generator theo category
-    if mode == "real" and PEXELS_API_KEY:
-        if category == "plant":
-            return api_generate_plant_video(prompt, num, orientation, animals_per_video)
-        else:
-            return api_generate_animal_video(prompt, num, orientation, animals_per_video)
+    if not PEXELS_API_KEY:
+        def error_stream():
+            yield error_event("Thieu PEXELS_API_KEY trong file .env")
+            yield log_event("Dang ky mien phi tai: https://www.pexels.com/api/", "warn")
+        return Response(error_stream(), mimetype="text/event-stream")
 
-    # Fallback: nếu prompt liên quan động vật
-    animal_keywords = ["animal", "động vật", "con vật", "wildlife", "thú", "chim", "cá"]
-    is_animal_topic = any(kw in prompt.lower() for kw in animal_keywords)
-    if is_animal_topic and PEXELS_API_KEY:
-        return api_generate_animal_video(prompt, num, orientation, animals_per_video)
-    
-    # Original AI generation flow
-    def generate_stream():
-        yield log_event(f"Bat dau tao {num} video voi chu de: {prompt}")
-        yield progress_event(5)
-
-        # Step 1: Scripts
-        yield log_event("Dang tao kich ban bang Ollama...")
-        try:
-            scripts = generate_scripts(prompt, num)
-            yield log_event(f"Da tao {len(scripts)} kich ban", "success")
-            yield progress_event(15)
-        except Exception as e:
-            yield error_event(f"Loi tao kich ban: {e}")
-            yield log_event("Dam bao Ollama dang chay: ollama serve", "warn")
-            return
-
-        os.makedirs(Config.OUTPUT_DIR, exist_ok=True)
-        os.makedirs(Config.TEMP_DIR, exist_ok=True)
-        total = len(scripts)
-        completed_files = []
-
-        # Step 2: Process each video
-        for i, script in enumerate(scripts):
-            title = script["title"]
-            scenes = script["scenes"]
-            video_dir = os.path.join(Config.TEMP_DIR, f"video_{i:03d}")
-            os.makedirs(video_dir, exist_ok=True)
-
-            yield log_event(f"[{i+1}/{total}] {title} ({len(scenes)} canh)")
-            base_pct = 15 + (i / total) * 75
-
-            # Generate images tung cai (de co log)
-            from generators.image_generator import generate_image
-            from generators.audio_generator import generate_audio as gen_audio
-            images = []
-            for si, scene in enumerate(scenes):
-                yield log_event(f"  Hinh {si+1}/{len(scenes)}...")
-                img_path = os.path.join(video_dir, f"scene_{si:03d}.png")
-                enhanced = (
-                    f"{scene['image_prompt']}, "
-                    "masterpiece, best quality, ultra detailed, sharp focus, "
-                    "professional illustration, vivid colors, cinematic composition"
-                )
-                r = run_async(generate_image(enhanced, img_path))
-                if r:
-                    images.append(r)
-                    yield log_event(f"  Hinh {si+1} OK", "success")
-                else:
-                    yield log_event(f"  Hinh {si+1} that bai", "error")
-
-            # Generate audio tung cai
-            audios = []
-            for si, scene in enumerate(scenes):
-                yield log_event(f"  Audio {si+1}/{len(scenes)}...")
-                aud_path = os.path.join(video_dir, f"narration_{si:03d}.mp3")
-                r = run_async(gen_audio(scene["narration"], aud_path))
-                if r:
-                    audios.append(r)
-                    yield log_event(f"  Audio {si+1} OK", "success")
-                else:
-                    yield log_event(f"  Audio {si+1} that bai", "error")
-
-            yield progress_event(base_pct + 35 / total)
-
-            if not images or not audios:
-                yield log_event(f"  Khong du anh/audio, bo qua video nay", "error")
-                continue
-
-            # Assemble video
-            yield log_event(f"  Dang ghep video...")
-            safe_title = "".join(c for c in title if c.isalnum() or c in " _-").strip()
-            output_path = os.path.join(Config.OUTPUT_DIR, f"{i+1:02d}_{safe_title[:50]}.mp4")
-
-            result = create_video_from_scenes(images, audios, output_path, title)
-            yield progress_event(base_pct + 75 / total)
-
-            if result:
-                completed_files.append(result)
-                yield log_event(f"  Hoan thanh: {result}", "success")
-            else:
-                yield log_event(f"  Ghep video that bai", "error")
-
-        # Cleanup
-        if os.path.exists(Config.TEMP_DIR):
-            shutil.rmtree(Config.TEMP_DIR)
-
-        yield done_event(
-            f"Hoan thanh {len(completed_files)}/{total} video!",
-            completed_files,
-        )
-
-    return Response(generate_stream(), mimetype="text/event-stream")
+    if category == "plant":
+        return api_generate_plant_video(prompt, num, orientation, items_per_video)
+    return api_generate_animal_video(prompt, num, orientation, items_per_video)
 
 
 # ---------- API: Generate Animal Videos (Real Images/Videos) ----------
@@ -440,6 +349,10 @@ def api_generate_plant_video(prompt: str, num: int, orientation: str = "landscap
         if os.path.exists(Config.TEMP_DIR):
             shutil.rmtree(Config.TEMP_DIR)
         os.makedirs(Config.TEMP_DIR, exist_ok=True)
+
+        # Reset bo nho video da dung cho LUOT nay, khong thi chay lau se luon
+        # roi vao nhanh "All videos used, fallback random"
+        reset_used_videos()
 
         total = len(scripts)
         completed_files = []
