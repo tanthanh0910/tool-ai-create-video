@@ -26,12 +26,14 @@ from cryptography.fernet import Fernet, InvalidToken
 
 from config import Config
 
-PROVIDERS = ("youtube", "facebook")
+PROVIDERS = ("youtube", "facebook", "tiktok")
 
 # Truong bi mat -> luu duoi dang Fernet
 SECRET_FIELDS = {
     "youtube": ("client_secret", "refresh_token"),
     "facebook": ("app_secret", "page_access_token"),
+    # pkce_verifier chi song giua buoc connect va callback roi bi xoa
+    "tiktok": ("client_secret", "refresh_token", "pkce_verifier"),
 }
 
 # Truong cong khai -> tra thang ra API
@@ -44,6 +46,10 @@ PUBLIC_FIELDS = {
         "app_id", "page_id", "page_id_hint", "page_name",
         "verified_at", "verify_error", "verified_name", "updated_at",
     ),
+    "tiktok": (
+        "client_key", "open_id", "display_name",
+        "verified_at", "verify_error", "verified_name", "updated_at",
+    ),
 }
 
 # Doi mot trong nhung truong nay = trang thai verify cu khong con y nghia.
@@ -52,18 +58,21 @@ PUBLIC_FIELDS = {
 INVALIDATING_FIELDS = {
     "youtube": ("channel_id", "client_id", "client_secret", "refresh_token"),
     "facebook": ("page_id", "page_access_token"),
+    "tiktok": ("open_id", "client_key", "client_secret", "refresh_token"),
 }
 
 # Du de coi la "da khai app" (buoc Ket noi mo khoa)
 APP_FIELDS = {
     "youtube": ("client_id", "client_secret"),
     "facebook": ("app_id", "app_secret"),
+    "tiktok": ("client_key", "client_secret"),
 }
 
 # Du de coi la "da ket noi" (dang duoc bai)
 CONNECTED_FIELDS = {
     "youtube": ("refresh_token", "channel_id"),
     "facebook": ("page_access_token", "page_id"),
+    "tiktok": ("refresh_token", "open_id"),
 }
 
 # Ngat ket noi xoa token nhung GIU app da khai - neu xoa sach thi moi lan Ngat
@@ -73,6 +82,8 @@ DISCONNECT_CLEARS = {
                 "verified_at", "verify_error", "verified_name"),
     "facebook": ("page_access_token", "page_id", "page_name",
                  "verified_at", "verify_error", "verified_name"),
+    "tiktok": ("refresh_token", "open_id", "display_name", "pkce_verifier",
+               "verified_at", "verify_error", "verified_name"),
 }
 
 _SECRET_FILE = os.path.join(
@@ -220,8 +231,10 @@ def app_credentials(provider: str) -> tuple[str, str] | None:
 
     if provider == "youtube":
         sys_id, sys_secret = Config.YOUTUBE_CLIENT_ID, Config.YOUTUBE_CLIENT_SECRET
-    else:
+    elif provider == "facebook":
         sys_id, sys_secret = Config.FACEBOOK_APP_ID, Config.FACEBOOK_APP_SECRET
+    else:
+        sys_id, sys_secret = Config.TIKTOK_CLIENT_KEY, Config.TIKTOK_CLIENT_SECRET
 
     if sys_id and sys_secret:
         return sys_id, sys_secret
@@ -265,6 +278,21 @@ def merge(provider: str, patch: dict) -> dict:
     data[provider] = cfg
     save_all(data)
     return cfg
+
+
+def rotate_refresh_token(provider: str, token: str) -> None:
+    """
+    Luu refresh_token moi do nha cung cap tu luan chuyen (TikTok lam viec nay).
+
+    KHONG di qua merge() vi refresh_token la truong invalidating: luan chuyen hop le
+    van la cung tai khoan do, xoa verify o day se la bao dong sai sau moi lan dang.
+    """
+    data = load_all()
+    cfg = dict(data.get(provider, {}))
+    cfg["refresh_token"] = encrypt(token)
+    cfg["updated_at"] = _now()
+    data[provider] = cfg
+    save_all(data)
 
 
 def set_verified(provider: str, name: str) -> None:

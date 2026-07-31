@@ -205,6 +205,158 @@ def publish_youtube(
     raise PublishError("Upload ket thuc bat thuong, khong nhan duoc video ID.")
 
 
+# ---------- TikTok ----------
+
+# Quy tac chunk cua TikTok: toi thieu 5MB, toi da 64MB, chunk CUOI duoc phinh
+# den 128MB. Video < 5MB phai gui nguyen 1 chunk. Toi da 1000 chunk.
+_TT_MIN_CHUNK = 5 * 1024 * 1024
+_TT_MAX_CHUNK = 64 * 1024 * 1024
+_TT_CHUNK = 32 * 1024 * 1024
+_TT_MAX_CHUNKS = 1000
+
+
+def _tiktok_chunk_plan(video_size: int) -> tuple[int, int]:
+    """
+    Tra (chunk_size, total_chunk_count) dung luat TikTok.
+
+    total_chunk_count = floor(video_size / chunk_size) -> chunk cuoi tu hut phan du,
+    khong phai lam tron len. Tinh sai cho nay la loi hay gap nhat.
+    """
+    # Duoi 5MB: bat buoc gui nguyen mot chunk
+    if video_size < _TT_MIN_CHUNK:
+        return video_size, 1
+
+    chunk = _TT_CHUNK
+    count = video_size // chunk
+
+    # File nho hon 1 chunk -> khai chunk_size bang chinh do dai file, dung khai
+    # chunk_size lon hon file
+    if count == 0:
+        return video_size, 1
+
+    # Qua 1000 chunk -> phong chunk len (tran 64MB)
+    if count > _TT_MAX_CHUNKS:
+        chunk = min(_TT_MAX_CHUNK, -(-video_size // _TT_MAX_CHUNKS))
+        count = max(1, video_size // chunk)
+
+    return chunk, count
+
+
+def publish_tiktok(video_path: str, on_progress=None) -> dict:
+    """
+    Day video vao HOP THU (inbox) cua creator trong app TikTok (scope video.upload).
+
+    KHONG kem duoc tieu de / mo ta / hashtag: che do nay de creator tu viet caption
+    trong app TikTok. Doi lai khong bi TikTok ep private nhu che do dang truc tiep
+    cua app chua qua audit.
+    """
+    if not os.path.exists(video_path):
+        raise PublishError(f"Khong tim thay file: {video_path}")
+
+    cfg = store.credentials("tiktok")
+    creds = store.app_credentials("tiktok")
+    if not creds:
+        raise PublishError("Chua khai day du ung dung TikTok.")
+    if not cfg.get("refresh_token"):
+        raise PublishError("Chua ket noi TikTok.")
+
+    client_key, client_secret = creds
+    try:
+        access_token, new_refresh = oauth.refresh_tiktok_token(
+            client_key, client_secret, cfg["refresh_token"]
+        )
+    except oauth.OAuthError as e:
+        raise PublishError(str(e))
+    if new_refresh and new_refresh != cfg["refresh_token"]:
+        store.rotate_refresh_token("tiktok", new_refresh)
+
+    video_size = os.path.getsize(video_path)
+    chunk_size, total_chunks = _tiktok_chunk_plan(video_size)
+
+    # Buoc 1: mo phien, lay upload_url
+    init = requests.post(
+        f"{oauth.TIKTOK_API}/v2/post/publish/inbox/video/init/",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json; charset=UTF-8",
+        },
+        json={
+            "source_info": {
+                "source": "FILE_UPLOAD",
+                "video_size": video_size,
+                "chunk_size": chunk_size,
+                "total_chunk_count": total_chunks,
+            }
+        },
+        timeout=60,
+    )
+    body = oauth._json(init)
+    if init.status_code != 200 or (body.get("error") or {}).get("code") not in (None, "ok"):
+        raise PublishError(f"TikTok tu choi mo phien upload: {oauth._tiktok_err(body)}")
+
+    data = body.get("data") or {}
+    upload_url = data.get("upload_url")
+    publish_id = data.get("publish_id")
+    if not upload_url or not publish_id:
+        raise PublishError("TikTok khong tra upload_url / publish_id.")
+
+    # Buoc 2: PUT tung chunk, TUAN TU (TikTok bat buoc)
+    with open(video_path, "rb") as f:
+        for i in range(total_chunks):
+            start = i * chunk_size
+            # Chunk cuoi hut het phan con lai
+            end = video_size - 1 if i == total_chunks - 1 else start + chunk_size - 1
+            f.seek(start)
+            payload = f.read(end - start + 1)
+
+            resp = requests.put(
+                upload_url,
+                headers={
+                    "Content-Type": "video/mp4",
+                    "Content-Length": str(len(payload)),
+                    "Content-Range": f"bytes {start}-{end}/{video_size}",
+                },
+                data=payload,
+                timeout=1800,
+            )
+            if resp.status_code not in (200, 201, 206):
+                raise PublishError(
+                    f"Upload chunk {i+1}/{total_chunks} that bai (HTTP {resp.status_code}): "
+                    f"{resp.text[:200]}"
+                )
+            if on_progress:
+                on_progress(end + 1, video_size)
+
+    status, fail_reason = _tiktok_status(access_token, publish_id)
+    if status == "FAILED":
+        raise PublishError(f"TikTok xu ly that bai: {fail_reason or 'khong ro ly do'}")
+
+    return {
+        "publish_id": publish_id,
+        "status": status,
+        "url": "https://www.tiktok.com/",
+        "draft": True,
+    }
+
+
+def _tiktok_status(access_token: str, publish_id: str) -> tuple[str, str]:
+    """Tra (status, fail_reason). Loi khi tra cuu thi khong nem - upload da xong roi."""
+    try:
+        resp = requests.post(
+            f"{oauth.TIKTOK_API}/v2/post/publish/status/fetch/",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json; charset=UTF-8",
+            },
+            json={"publish_id": publish_id},
+            timeout=30,
+        )
+        data = (oauth._json(resp).get("data") or {})
+        return data.get("status", ""), data.get("fail_reason", "")
+    except Exception:
+        return "", ""
+
+
 # ---------- Facebook ----------
 
 def publish_facebook(

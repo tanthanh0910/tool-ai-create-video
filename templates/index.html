@@ -529,6 +529,16 @@
                             <input type="checkbox" id="pub-ch-facebook" style="width: auto; accent-color: #1877f2;" onchange="onPublishChannelToggle()">
                             <span>📘 Facebook</span>
                         </label>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="checkbox" id="pub-ch-tiktok" style="width: auto; accent-color: #00f2ea;" onchange="onPublishChannelToggle()">
+                            <span>🎵 TikTok</span>
+                        </label>
+                    </div>
+                    <div id="tiktok-draft-note" style="display: none; margin-top: 8px; background: #2a2416; border: 1px solid #4a4426; border-radius: 8px; padding: 10px; color: #ddcc88; font-size: 0.8em;">
+                        🎵 <b>TikTok:</b> video duoc day vao <b>HOP THU (inbox)</b> cua app TikTok tren dien thoai —
+                        KHONG phai muc "Ban nhap" trong TikTok Studio. Mo app > tab Hop thu > bam vao thong bao
+                        de mo trinh chinh sua roi dang. TikTok khong cho gui kem caption o che do nay, tool se
+                        hien san caption kem nut copy o phan Ket Qua.
                     </div>
                 </div>
 
@@ -724,6 +734,8 @@
             document.getElementById('results').classList.add('active');
         }
 
+        let lastTiktokCaption = '';
+
         function showPublishResults(results) {
             const list = document.getElementById('results-list');
             list.innerHTML = '';
@@ -732,11 +744,43 @@
                 const item = document.createElement('div');
                 item.className = 'result-item';
                 item.innerHTML = r.ok
-                    ? `<span class="name">✓ ${meta.label}</span><a href="${r.url}" target="_blank">Mo bai dang</a>`
+                    ? (r.draft
+                        ? `<span class="name">✓ ${meta.label} - da vao HOP THU trong app</span><a href="https://www.tiktok.com/" target="_blank">Mo TikTok</a>`
+                        : `<span class="name">✓ ${meta.label}</span><a href="${r.url}" target="_blank">Mo bai dang</a>`)
                     : `<span class="name" style="color:#ff8899">✗ ${meta.label}: ${r.error}</span>`;
                 list.appendChild(item);
+
+                // TikTok che do Drafts KHONG nhan caption -> phai tu go trong app.
+                // Cho san o caption + nut copy de khoi boi trong log.
+                if (r.ok && r.provider === 'tiktok' && r.caption) {
+                    lastTiktokCaption = r.caption;
+                    const box = document.createElement('div');
+                    box.style.cssText = 'background:#1a1a2e;border:1px solid #2a2a3e;border-radius:8px;padding:14px;margin-bottom:8px;';
+                    box.innerHTML = `
+                        <div style="color:#ffaa00;font-size:.82em;margin-bottom:8px;">
+                            📱 TikTok khong cho gui kem caption o che do nay. Mo app > <b>Hop thu</b> >
+                            bam thong bao, roi dan caption duoi day vao:
+                        </div>
+                        <textarea id="tiktok-caption" readonly rows="4"
+                            style="width:100%;background:#0f0f1e;border:1px solid #2a2a3e;border-radius:6px;
+                                   padding:10px;color:#e0e0e0;font-family:inherit;font-size:.88em;resize:vertical;"
+                        >${r.caption.replace(/</g, '&lt;')}</textarea>
+                        <button type="button" onclick="copyTiktokCaption(this)"
+                            style="margin-top:8px;background:#00c4bd;border:none;color:#0f0f1a;border-radius:6px;
+                                   padding:7px 16px;cursor:pointer;font-weight:700;font-size:.85em;">
+                            📋 Copy caption
+                        </button>`;
+                    list.appendChild(box);
+                }
             });
             document.getElementById('results').classList.add('active');
+        }
+
+        function copyTiktokCaption(btn) {
+            const ta = document.getElementById('tiktok-caption');
+            ta.select();
+            const done = () => { btn.textContent = '✓ Da copy!'; setTimeout(() => btn.textContent = '📋 Copy caption', 2000); };
+            navigator.clipboard.writeText(lastTiktokCaption).then(done, () => { document.execCommand('copy'); done(); });
         }
 
         // SSE stream helper
@@ -947,7 +991,7 @@
         }
 
         // ============ KENH DANG BAI ============
-        const PROVIDERS = ['youtube', 'facebook'];
+        const PROVIDERS = ['youtube', 'facebook', 'tiktok'];
         const PROVIDER_META = {
             youtube: { label: 'YouTube', icon: '▶️', color: '#ff0033',
                        idField: 'client_id', secretField: 'client_secret',
@@ -957,6 +1001,10 @@
                         idField: 'app_id', secretField: 'app_secret',
                         idLabel: 'App ID', secretLabel: 'App Secret',
                         console: 'https://developers.facebook.com/apps/' },
+            tiktok:   { label: 'TikTok', icon: '🎵', color: '#00c4bd',
+                        idField: 'client_key', secretField: 'client_secret',
+                        idLabel: 'Client Key', secretLabel: 'Client Secret',
+                        console: 'https://developers.tiktok.com/apps' },
         };
 
         let channelState = {};
@@ -1013,9 +1061,9 @@
                 const cfg = channelState[p] || {};
                 const av = availableState[p] || {};
                 const badge = badgeFor(cfg);
-                const target = p === 'youtube'
-                    ? (cfg.channel_title || cfg.channel_id || '')
-                    : (cfg.page_name || cfg.page_id || '');
+                const target = p === 'youtube' ? (cfg.channel_title || cfg.channel_id || '')
+                    : p === 'facebook' ? (cfg.page_name || cfg.page_id || '')
+                    : (cfg.display_name || cfg.open_id || '');
 
                 const card = document.createElement('div');
                 card.style.cssText = 'background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 12px; padding: 18px; margin-bottom: 14px;';
@@ -1071,6 +1119,13 @@
                             <label>${meta.secretLabel} ${cfg[meta.secretField + '_set'] ? '<span style="color:#44dd77">(da luu - de trong = giu nguyen)</span>' : ''}</label>
                             <input type="password" id="appsecret-${p}" placeholder="${cfg[meta.secretField + '_set'] ? '••••••••  de trong de giu nguyen' : meta.secretLabel}">
                         </div>
+                        ${p === 'tiktok' ? `
+                        <div class="info-box" style="background: #2a2416; border-color: #4a4426; color: #ddcc88; font-size: 0.8em;">
+                            <b>Phai khai app dang Desktop</b>, khong phai Web: Web Login Kit bat
+                            redirect_uri phai HTTPS nen localhost khong dung duoc.<br>
+                            Can bat 2 san pham: <b>Login Kit</b> va <b>Content Posting API</b>,
+                            voi scope <code>user.info.basic</code> + <code>video.upload</code>.
+                        </div>` : ''}
                         ${p === 'facebook' ? `
                         <div class="form-group">
                             <label>Page ID goi y (bat buoc neu ban quan tri nhieu Trang)</label>
@@ -1271,6 +1326,8 @@
             }
             document.getElementById('pub-privacy-group').style.display =
                 chans.includes('youtube') ? 'block' : 'none';
+            document.getElementById('tiktok-draft-note').style.display =
+                chans.includes('tiktok') ? 'block' : 'none';
             renderContentTabs();
         }
 

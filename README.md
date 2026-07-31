@@ -7,7 +7,7 @@ Tool tao video tu dong bang AI - chay 100% mien phi tren may tinh ca nhan.
 - **Video Dong Vat / Thuc Vat**: hinh anh + video THUC tu Pexels, doc ten bang giong
   Viet, kem tieng keu that (dong vat) hoac nhac nen (thuc vat)
 - **Ghep Nhieu Video**: noi nhieu mp4 + audio + hieu ung, tu chuan hoa resolution/fps
-- **Dang len YouTube / Facebook**: ket noi kenh roi dang thang video vua tao
+- **Dang len YouTube / Facebook / TikTok**: ket noi kenh roi dang thang video vua tao
 
 ## Yeu cau he thong
 
@@ -46,9 +46,9 @@ cp .env.example .env
 |---------|---------|----------|----------|
 | Pexels | https://www.pexels.com/api/ | Hinh anh/video thuc (mien phi) | ✅ |
 | LLM | tuy provider | Nut "AI viet gium" tieu de/tag | ❌ |
-| YouTube / Facebook | xem `docs/` | Dang video len kenh | ❌ |
+| YouTube / Facebook / TikTok | xem `docs/` | Dang video len kenh | ❌ |
 
-## Dang video len YouTube / Facebook
+## Dang video len YouTube / Facebook / TikTok
 
 Moi nguoi tu khai OAuth app cua rieng minh (khong dung app chung), nen dung duoc
 ngay ma khong phai cho Google/Meta duyet.
@@ -59,7 +59,12 @@ ngay ma khong phai cho Google/Meta duyet.
 4. Tao video xong, bam **📤 Dang Len Kenh** o phan Ket Qua
 
 Huong dan chi tiet: [docs/youtube-setup.md](docs/youtube-setup.md) ·
-[docs/facebook-setup.md](docs/facebook-setup.md)
+[docs/facebook-setup.md](docs/facebook-setup.md) ·
+[docs/tiktok-setup.md](docs/tiktok-setup.md)
+
+**TikTok co 2 khac biet**: phai khai app dang **Desktop** (Web bat redirect_uri HTTPS nen
+localhost khong dung duoc), va video vao **Drafts** chu khong dang thang - vi TikTok ep
+moi bai cua app chua qua audit ve private. Ban mo app TikTok bam Dang la ra cong khai.
 
 ### Nut "AI viet gium" (tieu de / mo ta / tag)
 

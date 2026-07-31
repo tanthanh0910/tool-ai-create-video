@@ -16,8 +16,10 @@ def verify(provider: str) -> tuple[bool, str]:
     try:
         if provider == "youtube":
             name = _verify_youtube()
-        else:
+        elif provider == "facebook":
             name = _verify_facebook()
+        else:
+            name = _verify_tiktok()
     except oauth.OAuthError as e:
         store.set_verify_error(provider, str(e))
         return False, str(e)
@@ -66,6 +68,35 @@ def _verify_youtube() -> str:
             f"Bam Ngat roi ket noi lai."
         )
     return title
+
+
+def _verify_tiktok() -> str:
+    cfg = store.credentials("tiktok")
+    creds = store.app_credentials("tiktok")
+    if not creds:
+        raise oauth.OAuthError("Chua khai day du ung dung TikTok.")
+    if not cfg.get("refresh_token"):
+        raise oauth.OAuthError("Chua ket noi TikTok.")
+
+    client_key, client_secret = creds
+    access_token, new_refresh = oauth.refresh_tiktok_token(
+        client_key, client_secret, cfg["refresh_token"]
+    )
+    # TikTok co the luan chuyen refresh_token -> luu lai ngay
+    if new_refresh and new_refresh != cfg["refresh_token"]:
+        store.rotate_refresh_token("tiktok", new_refresh)
+
+    user = oauth.tiktok_user(access_token)
+    open_id = user.get("open_id", "")
+    name = user.get("display_name", "")
+
+    saved = cfg.get("open_id")
+    if saved and open_id and saved != open_id:
+        raise oauth.OAuthError(
+            f"Token dang tro toi tai khoan '{name}' chu khong phai tai khoan da luu. "
+            f"Bam Ngat roi ket noi lai."
+        )
+    return name
 
 
 def _verify_facebook() -> str:

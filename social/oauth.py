@@ -12,6 +12,9 @@ duyet goi nen khong mang duoc header Authorization - danh tinh phai di kem trong
 Doc ra phai kiem ca provider khop.
 """
 
+import hashlib
+import secrets
+
 import requests
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
@@ -21,6 +24,13 @@ from . import store
 STATE_MAX_AGE = 600  # 10 phut
 GRAPH_VERSION = "v21.0"
 GRAPH = f"https://graph.facebook.com/{GRAPH_VERSION}"
+TIKTOK_API = "https://open.tiktokapis.com"
+
+# video.upload = day video vao HOP THU (inbox) cua creator trong app TikTok. Ho bam vao
+# thong bao de mo trinh chinh sua roi tu dang. KHONG phai muc "Ban nhap" cua TikTok Studio.
+# KHONG dung video.publish: app chua qua audit thi TikTok EP moi bai ve private,
+# nen dang truc tiep se ra video khong ai xem duoc.
+TIKTOK_SCOPES = ["user.info.basic", "video.upload"]
 
 # Thieu youtube.readonly thi khong doc duoc channels.list?mine=true de lay
 # Channel ID + ten kenh -> bao insufficient permission.
@@ -87,6 +97,24 @@ def authorize_url(provider: str) -> str:
         }
         return "https://accounts.google.com/o/oauth2/v2/auth?" + _qs(params)
 
+    if provider == "tiktok":
+        # PKCE BAT BUOC voi app Desktop. Phai khai app dang Desktop chu khong phai
+        # Web: Web Login Kit bat redirect_uri phai HTTPS, localhost khong dung duoc.
+        verifier = _new_code_verifier()
+        store.merge("tiktok", {"pkce_verifier": verifier})
+        params = {
+            "client_key": client_id,
+            "response_type": "code",
+            "scope": ",".join(TIKTOK_SCOPES),
+            "redirect_uri": redirect_uri(provider),
+            "state": state,
+            # TikTok doi code_challenge la SHA256 ma hoa HEX. Chuan OAuth dung
+            # base64url - dung base64url o day se bi tu choi.
+            "code_challenge": hashlib.sha256(verifier.encode()).hexdigest(),
+            "code_challenge_method": "S256",
+        }
+        return "https://www.tiktok.com/v2/auth/authorize/?" + _qs(params)
+
     params = {
         "client_id": client_id,
         "redirect_uri": redirect_uri(provider),
@@ -95,6 +123,11 @@ def authorize_url(provider: str) -> str:
         "state": state,
     }
     return f"https://www.facebook.com/{GRAPH_VERSION}/dialog/oauth?" + _qs(params)
+
+
+def _new_code_verifier() -> str:
+    """Chuoi ngau nhien 43-128 ky tu trong tap [A-Za-z0-9-._~]."""
+    return secrets.token_urlsafe(64)[:96]
 
 
 def _qs(params: dict) -> str:
@@ -294,6 +327,124 @@ def _pick_facebook_page(user_token: str, hint: str) -> tuple[str, str, str]:
         "Facebook khong liet ke Trang nao. Neu Trang thuoc Business Portfolio thi "
         "me/accounts hay tra rong - dien Page ID vao o 'Page ID goi y' roi ket noi lai."
     )
+
+
+def exchange_tiktok(code: str) -> dict:
+    """
+    code + code_verifier -> refresh_token (365 ngay) + open_id.
+
+    access_token chi song 24h nen khong luu; moi lan dang lai doi tu refresh_token.
+    """
+    creds = store.app_credentials("tiktok")
+    if not creds:
+        raise OAuthError("Chua khai day du ung dung TikTok.")
+    client_key, client_secret = creds
+
+    verifier = store.credentials("tiktok").get("pkce_verifier")
+    if not verifier:
+        raise OAuthError(
+            "Mat code_verifier cua PKCE. Bam Ket noi lai (dung mo lai lien ket cu)."
+        )
+
+    resp = requests.post(
+        f"{TIKTOK_API}/v2/oauth/token/",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        data={
+            "client_key": client_key,
+            "client_secret": client_secret,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri("tiktok"),
+            "code_verifier": verifier,
+        },
+        timeout=30,
+    )
+    body = _json(resp)
+    # TikTok tra loi ngay trong body ke ca khi HTTP 200 -> phai kiem ca hai
+    if resp.status_code != 200 or body.get("error"):
+        raise OAuthError(f"TikTok tu choi doi code: {_tiktok_err(body)}")
+
+    refresh_token = body.get("refresh_token")
+    access_token = body.get("access_token")
+    open_id = body.get("open_id")
+    if not refresh_token or not open_id:
+        raise OAuthError("TikTok khong tra refresh_token hoac open_id.")
+
+    display_name = _tiktok_display_name(access_token) if access_token else ""
+
+    # Dung xong verifier thi xoa ngay
+    store.merge("tiktok", {"pkce_verifier": ""})
+
+    return {
+        "refresh_token": refresh_token,
+        "open_id": open_id,
+        "display_name": display_name,
+    }
+
+
+def refresh_tiktok_token(client_key: str, client_secret: str, refresh_token: str) -> tuple[str, str | None]:
+    """
+    Doi refresh_token -> (access_token, refresh_token moi neu co).
+
+    TikTok co the tra refresh_token moi -> phai luu lai, khong thi sau 365 ngay chet.
+    """
+    resp = requests.post(
+        f"{TIKTOK_API}/v2/oauth/token/",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        data={
+            "client_key": client_key,
+            "client_secret": client_secret,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        },
+        timeout=30,
+    )
+    body = _json(resp)
+    if resp.status_code != 200 or body.get("error"):
+        raise OAuthError(
+            f"Khong lam moi duoc token TikTok: {_tiktok_err(body)}. "
+            f"Neu refresh_token da qua 365 ngay thi phai ket noi lai."
+        )
+    return body["access_token"], body.get("refresh_token")
+
+
+def _tiktok_display_name(access_token: str) -> str:
+    resp = requests.get(
+        f"{TIKTOK_API}/v2/user/info/",
+        params={"fields": "open_id,display_name"},
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=30,
+    )
+    body = _json(resp)
+    if resp.status_code != 200 or (body.get("error") or {}).get("code") not in (None, "ok"):
+        return ""
+    return ((body.get("data") or {}).get("user") or {}).get("display_name", "")
+
+
+def tiktok_user(access_token: str) -> dict:
+    """open_id + display_name. Nem OAuthError neu token khong dung duoc."""
+    resp = requests.get(
+        f"{TIKTOK_API}/v2/user/info/",
+        params={"fields": "open_id,display_name"},
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=30,
+    )
+    body = _json(resp)
+    if resp.status_code != 200 or (body.get("error") or {}).get("code") not in (None, "ok"):
+        raise OAuthError(f"Khong doc duoc tai khoan TikTok: {_tiktok_err(body)}")
+    return ((body.get("data") or {}).get("user") or {})
+
+
+def _tiktok_err(body: dict) -> str:
+    """TikTok co 2 dang loi: {error, error_description} va {error: {code, message}}."""
+    if not body:
+        return "khong doc duoc phan hoi"
+    err = body.get("error")
+    if isinstance(err, dict):
+        return err.get("message") or err.get("code") or str(err)
+    if isinstance(err, str):
+        return f"{err}: {body.get('error_description', '')}".strip(": ")
+    return str(body)[:300]
 
 
 def _facebook_accounts(user_token: str) -> list[dict]:

@@ -17,8 +17,8 @@ from . import oauth, publish as publisher, store, verify as verifier
 
 bp = Blueprint("social", __name__)
 
-PROVIDERS = ("youtube", "facebook")
-PROVIDER_LABEL = {"youtube": "YouTube", "facebook": "Facebook"}
+PROVIDERS = ("youtube", "facebook", "tiktok")
+PROVIDER_LABEL = {"youtube": "YouTube", "facebook": "Facebook", "tiktok": "TikTok"}
 
 
 def _bad(msg: str, code: int = 400):
@@ -68,8 +68,10 @@ def put_app(provider):
 
     if provider == "youtube":
         allowed = ("client_id", "client_secret")
-    else:
+    elif provider == "facebook":
         allowed = ("app_id", "app_secret", "page_id_hint")
+    else:
+        allowed = ("client_key", "client_secret")
 
     for field in allowed:
         if field in data:
@@ -124,11 +126,16 @@ def callback(provider):
             new_target, old_target = result["channel_id"], store.get(provider).get("channel_id")
             new_name = result.get("channel_title", "")
             old_name = store.get(provider).get("channel_title", "")
-        else:
+        elif provider == "facebook":
             result = oauth.exchange_facebook(code)
             new_target, old_target = result["page_id"], store.get(provider).get("page_id")
             new_name = result.get("page_name", "")
             old_name = store.get(provider).get("page_name", "")
+        else:
+            result = oauth.exchange_tiktok(code)
+            new_target, old_target = result["open_id"], store.get(provider).get("open_id")
+            new_name = result.get("display_name", "")
+            old_name = store.get(provider).get("display_name", "")
     except oauth.OAuthError as e:
         return _ui_redirect("error", str(e))
     except Exception as e:
@@ -358,7 +365,7 @@ def publish():
                         "message": f"  ✓ {label} ({result['privacy']}): {result['url']}",
                         "level": "success",
                     })
-                else:
+                elif provider == "facebook":
                     result = publisher.publish_facebook(
                         safe_path,
                         title=title,
@@ -370,6 +377,30 @@ def publish():
                         "message": f"  ✓ {label}: {result['url']}",
                         "level": "success",
                     })
+                else:
+                    result = publisher.publish_tiktok(safe_path)
+                    # Che do Drafts KHONG gui kem caption duoc - creator tu viet trong
+                    # app TikTok. Nen in caption ra day de copy cho khoi phai go lai.
+                    caption = publisher.build_caption(
+                        title,
+                        content.get("description", ""),
+                        publisher.normalize_hashtags(content.get("hashtags")),
+                    )
+                    yield _sse({
+                        "type": "log",
+                        "message": f"  ✓ {label}: da vao HOP THU app TikTok (status={result['status'] or '?'})",
+                        "level": "success",
+                    })
+                    yield _sse({
+                        "type": "log",
+                        "message": "  📱 Mo app TikTok tren DIEN THOAI > tab Hop thu > bam vao thong bao de dang. KHONG nam o muc Ban nhap.",
+                        "level": "warn",
+                    })
+                    if caption:
+                        yield _sse({"type": "log", "message": "  📋 Caption de copy vao app:"})
+                        for line in caption.splitlines():
+                            yield _sse({"type": "log", "message": f"     {line}"})
+                    result["caption"] = caption
                 results.append({"provider": provider, "ok": True, **result})
             except publisher.PublishError as e:
                 # Dang hong khong keo ca luot theo: file van con trong output/
