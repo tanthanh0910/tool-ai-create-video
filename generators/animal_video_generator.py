@@ -761,7 +761,7 @@ async def download_file(url: str, output_path: str) -> str | None:
 
 async def search_pixabay_videos(query: str, per_page: int = 5) -> list[dict]:
     """Tìm video từ Pixabay API (backup nếu không có Pexels key)."""
-    pixabay_key = os.getenv("PIXABAY_API_KEY", "")
+    pixabay_key = Config.PIXABAY_API_KEY
     if not pixabay_key:
         return []
     

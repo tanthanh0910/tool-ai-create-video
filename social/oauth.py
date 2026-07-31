@@ -409,16 +409,11 @@ def refresh_tiktok_token(client_key: str, client_secret: str, refresh_token: str
 
 
 def _tiktok_display_name(access_token: str) -> str:
-    resp = requests.get(
-        f"{TIKTOK_API}/v2/user/info/",
-        params={"fields": "open_id,display_name"},
-        headers={"Authorization": f"Bearer {access_token}"},
-        timeout=30,
-    )
-    body = _json(resp)
-    if resp.status_code != 200 or (body.get("error") or {}).get("code") not in (None, "ok"):
+    """Ban de dai: khong lay duoc ten thi tra rong chu khong lam hong ca luot ket noi."""
+    try:
+        return tiktok_user(access_token).get("display_name", "")
+    except OAuthError:
         return ""
-    return ((body.get("data") or {}).get("user") or {}).get("display_name", "")
 
 
 def tiktok_user(access_token: str) -> dict:

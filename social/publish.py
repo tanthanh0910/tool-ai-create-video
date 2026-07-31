@@ -93,7 +93,6 @@ def publish_youtube(
     tags=None,
     hashtags=None,
     privacy: str = "private",
-    on_progress=None,
 ) -> dict:
     """Resumable upload. Tra { video_id, url }."""
     if privacy not in YOUTUBE_PRIVACY:
@@ -178,8 +177,6 @@ def publish_youtube(
                 video_id = data.get("id")
                 if not video_id:
                     raise PublishError("Upload xong nhung khong nhan duoc video ID.")
-                if on_progress:
-                    on_progress(file_size, file_size)
                 return {
                     "video_id": video_id,
                     "url": f"https://www.youtube.com/watch?v={video_id}",
@@ -195,8 +192,6 @@ def publish_youtube(
                         uploaded = end + 1
                 else:
                     uploaded = end + 1
-                if on_progress:
-                    on_progress(uploaded, file_size)
                 continue
             raise PublishError(
                 f"Upload that bai (HTTP {resp.status_code}): {oauth._err(oauth._json(resp))}"
@@ -242,7 +237,7 @@ def _tiktok_chunk_plan(video_size: int) -> tuple[int, int]:
     return chunk, count
 
 
-def publish_tiktok(video_path: str, on_progress=None) -> dict:
+def publish_tiktok(video_path: str) -> dict:
     """
     Day video vao HOP THU (inbox) cua creator trong app TikTok (scope video.upload).
 
@@ -324,8 +319,6 @@ def publish_tiktok(video_path: str, on_progress=None) -> dict:
                     f"Upload chunk {i+1}/{total_chunks} that bai (HTTP {resp.status_code}): "
                     f"{resp.text[:200]}"
                 )
-            if on_progress:
-                on_progress(end + 1, video_size)
 
     status, fail_reason = _tiktok_status(access_token, publish_id)
     if status == "FAILED":
